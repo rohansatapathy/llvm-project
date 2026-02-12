@@ -541,6 +541,29 @@ static std::string computeVEDataLayout(const Triple &T) {
   return Ret;
 }
 
+static std::string computeLC2KDataLayout() {
+  // LC2K is little endian.
+  std::string Ret = "e";
+
+  // Use ELF mangling.
+  Ret += "-m:e";
+
+  // LC2K is 4-byte word-addressable, so all integer types should be minimum
+  // 32-bit aligned.
+  // NOTE: ABI alignment is not set to 32 to satisfy clang's requirement
+  // that i8s be 8-bit aligned and i16s be 16-bit aligned.
+  Ret += "-i8:8:32";
+  Ret += "-i16:16:32";
+
+  // 64-bit integers should be 64-bit aligned.
+  Ret += "-i64:64:64";
+
+  // Pointers are 20 bits and stored in a single word (4 bytes).
+  Ret += "-p:20:32:32";
+
+  return Ret;
+}
+
 std::string Triple::computeDataLayout(StringRef ABIName) const {
   switch (getArch()) {
   case Triple::arm:
@@ -628,6 +651,8 @@ std::string Triple::computeDataLayout(StringRef ABIName) const {
     return computeWebAssemblyDataLayout(*this);
   case Triple::ve:
     return computeVEDataLayout(*this);
+  case Triple::lc2k:
+    return computeLC2KDataLayout();
 
   case Triple::amdil:
   case Triple::amdil64:
