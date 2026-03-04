@@ -64,6 +64,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
     return "kalimba";
   case lanai:
     return "lanai";
+  case lc2k:
+    return "lc2k";
   case loongarch32:
     return "loongarch32";
   case loongarch64:
@@ -351,6 +353,9 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case xtensa:
     return "xtensa";
+
+  case lc2k:
+    return "lc2k";
   }
 }
 
@@ -726,6 +731,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
       .Case("loongarch64", loongarch64)
       .Case("dxil", dxil)
       .Case("xtensa", xtensa)
+      .Case("lc2k", lc2k)
       .Default(UnknownArch);
 }
 
@@ -879,6 +885,7 @@ Triple::ArchType Triple::parseArch(StringRef ArchName) {
                   "dxilv1.9"},
                  Triple::dxil)
           .Case("xtensa", Triple::xtensa)
+          .Case("lc2k", Triple::lc2k)
           .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -1211,6 +1218,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::hsail:
   case Triple::kalimba:
   case Triple::lanai:
+  case Triple::lc2k:
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::m68k:
@@ -1981,6 +1989,7 @@ unsigned Triple::getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::hsail:
   case llvm::Triple::kalimba:
   case llvm::Triple::lanai:
+  case llvm::Triple::lc2k:
   case llvm::Triple::loongarch32:
   case llvm::Triple::m68k:
   case llvm::Triple::mips:
@@ -2092,6 +2101,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::hsail:
   case Triple::kalimba:
   case Triple::lanai:
+  case Triple::lc2k:
   case Triple::loongarch32:
   case Triple::m68k:
   case Triple::mips:
@@ -2192,6 +2202,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::hexagon:
   case Triple::kalimba:
   case Triple::lanai:
+  case Triple::lc2k:
   case Triple::m68k:
   case Triple::msp430:
   case Triple::r600:
@@ -2317,6 +2328,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::hsail64:
   case Triple::hsail:
   case Triple::kalimba:
+  case Triple::lc2k:
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::msp430:
@@ -2455,6 +2467,7 @@ bool Triple::isLittleEndian() const {
   case Triple::hsail64:
   case Triple::hsail:
   case Triple::kalimba:
+  case Triple::lc2k:
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::mips64el:

@@ -1475,6 +1475,11 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::spirv64, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::ChipStar, T.getOS());
+
+  T = Triple("lc2k-unknown-none");
+  EXPECT_EQ(Triple::lc2k, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::UnknownOS, T.getOS());
 }
 
 TEST(TripleTest, EnumConstructor) {
@@ -2114,6 +2119,11 @@ TEST(TripleTest, BitWidthChecks) {
   EXPECT_TRUE(T.isDXIL());
 
   T.setArch(Triple::xtensa);
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_TRUE(T.isArch32Bit());
+  EXPECT_FALSE(T.isArch64Bit());
+
+  T.setArch(Triple::lc2k);
   EXPECT_FALSE(T.isArch16Bit());
   EXPECT_TRUE(T.isArch32Bit());
   EXPECT_FALSE(T.isArch64Bit());
@@ -2928,14 +2938,10 @@ TEST(TripleTest, FileFormat) {
             Triple("wasm32-unknown-unknown-wasm").getObjectFormat());
   EXPECT_EQ(Triple::Wasm,
             Triple("wasm64-unknown-unknown-wasm").getObjectFormat());
-  EXPECT_EQ(Triple::Wasm,
-            Triple("wasm32-wasi-wasm").getObjectFormat());
-  EXPECT_EQ(Triple::Wasm,
-            Triple("wasm64-wasi-wasm").getObjectFormat());
-  EXPECT_EQ(Triple::Wasm,
-            Triple("wasm32-unknown-wasi-wasm").getObjectFormat());
-  EXPECT_EQ(Triple::Wasm,
-            Triple("wasm64-unknown-wasi-wasm").getObjectFormat());
+  EXPECT_EQ(Triple::Wasm, Triple("wasm32-wasi-wasm").getObjectFormat());
+  EXPECT_EQ(Triple::Wasm, Triple("wasm64-wasi-wasm").getObjectFormat());
+  EXPECT_EQ(Triple::Wasm, Triple("wasm32-unknown-wasi-wasm").getObjectFormat());
+  EXPECT_EQ(Triple::Wasm, Triple("wasm64-unknown-wasi-wasm").getObjectFormat());
 
   EXPECT_EQ(Triple::XCOFF, Triple("powerpc-ibm-aix").getObjectFormat());
   EXPECT_EQ(Triple::XCOFF, Triple("powerpc64-ibm-aix").getObjectFormat());
@@ -3206,9 +3212,12 @@ TEST(TripleTest, NormalizeWindows) {
 
   EXPECT_TRUE(Triple("x86_64-pc-win32").isWindowsMSVCEnvironment());
 
-  EXPECT_TRUE(Triple(Triple::normalize("mipsel-windows-msvccoff")).isOSBinFormatCOFF());
-  EXPECT_TRUE(Triple(Triple::normalize("mipsel-windows-msvc")).isOSBinFormatCOFF());
-  EXPECT_TRUE(Triple(Triple::normalize("mipsel-windows-gnu")).isOSBinFormatCOFF());
+  EXPECT_TRUE(
+      Triple(Triple::normalize("mipsel-windows-msvccoff")).isOSBinFormatCOFF());
+  EXPECT_TRUE(
+      Triple(Triple::normalize("mipsel-windows-msvc")).isOSBinFormatCOFF());
+  EXPECT_TRUE(
+      Triple(Triple::normalize("mipsel-windows-gnu")).isOSBinFormatCOFF());
 }
 
 TEST(TripleTest, NormalizeAndroid) {
