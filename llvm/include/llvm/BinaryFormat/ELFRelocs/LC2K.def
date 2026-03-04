@@ -1,0 +1,13 @@
+
+#ifndef ELF_RELOC
+#error "ELF_RELOC must be defined"
+#endif
+
+// No relocation
+ELF_RELOC(R_LC2K_NONE, 0)
+// 32-bit absolute relocation (for .fill)
+ELF_RELOC(R_LC2K_32, 1)
+// 20-bit absolute relocation (for lw, sw, addi)
+ELF_RELOC(R_LC2K_20, 2)
+// 20-bit relative relocation (for beq, blt, bltu)
+ELF_RELOC(R_LC2K_20_PCPLUS1REL, 3)
