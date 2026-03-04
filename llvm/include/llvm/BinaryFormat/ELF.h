@@ -325,6 +325,7 @@ enum {
   EM_VE = 251,            // NEC SX-Aurora VE
   EM_CSKY = 252,          // C-SKY 32-bit processor
   EM_LOONGARCH = 258,     // LoongArch
+  EM_LC2K = 999,          // LC2K
 };
 
 // Object file classes.
@@ -703,6 +704,13 @@ enum {
 // ELF Relocation type for Lanai.
 enum {
 #include "ELFRelocs/Lanai.def"
+};
+
+// TODO: LC2K-specific e-flags?
+
+// ELF Relocation types for LC2K.
+enum {
+#include "ELFRelocs/LC2K.def"
 };
 
 // RISCV Specific e_flags
