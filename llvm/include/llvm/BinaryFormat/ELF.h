@@ -706,8 +706,6 @@ enum {
 #include "ELFRelocs/Lanai.def"
 };
 
-// TODO: LC2K-specific e-flags?
-
 // ELF Relocation types for LC2K.
 enum {
 #include "ELFRelocs/LC2K.def"
