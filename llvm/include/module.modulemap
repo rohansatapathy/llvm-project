@@ -89,6 +89,7 @@ module LLVM_BinaryFormat {
     textual header "llvm/BinaryFormat/ELFRelocs/Hexagon.def"
     textual header "llvm/BinaryFormat/ELFRelocs/i386.def"
     textual header "llvm/BinaryFormat/ELFRelocs/Lanai.def"
+    textual header "llvm/BinaryFormat/ELFRelocs/LC2K.def"
     textual header "llvm/BinaryFormat/ELFRelocs/LoongArch.def"
     textual header "llvm/BinaryFormat/ELFRelocs/M68k.def"
     textual header "llvm/BinaryFormat/ELFRelocs/Mips.def"
