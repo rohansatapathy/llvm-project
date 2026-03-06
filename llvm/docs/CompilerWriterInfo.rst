@@ -203,6 +203,11 @@ SPIR-V
 
 * `SPIR-V documentation <https://www.khronos.org/registry/SPIR-V/>`_
 
+LC2K
+====
+
+* `LC2K Specification <https://github.com/rohansatapathy/lc2k-docs>`_
+
 Miscellaneous Resources
 =======================
 

@@ -257,6 +257,11 @@ aankit@qti.qualcomm.com (email), [aankit-ca](https://github.com/aankit-ca)
 Jacques Pienaar \
 jpienaar@google.com (email), [jpienaar](https://github.com/jpienaar) (GitHub)
 
+#### LC2K backend
+
+Rohan Satapathy \
+rohansat@umich.edu (email), [rohansatapathy](https://github.com/rohansatapathy) (GitHub)
+
 #### LoongArch backend
 
 Weining Lu \
