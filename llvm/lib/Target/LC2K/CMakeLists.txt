@@ -3,6 +3,7 @@ add_llvm_component_group(LC2K)
 set(LLVM_TARGET_DEFINITIONS LC2K.td)
 
 tablegen(LLVM LC2KGenAsmWriter.inc -gen-asm-writer)
+tablegen(LLVM LC2KGenAsmMatcher.inc -gen-asm-matcher)
 tablegen(LLVM LC2KGenGlobalISel.inc -gen-global-isel)
 tablegen(LLVM LC2KGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM LC2KGenMCCodeEmitter.inc -gen-emitter)
@@ -26,4 +27,5 @@ add_llvm_target(LC2KCodeGen
   LC2K
   )
 
+add_subdirectory(AsmParser)
 add_subdirectory(TargetInfo)
