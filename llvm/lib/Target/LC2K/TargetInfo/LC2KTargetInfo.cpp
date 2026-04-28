@@ -21,10 +21,3 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void
 LLVMInitializeLC2KTargetInfo() {
   RegisterTarget<Triple::lc2k> X(getTheLC2KTarget(), "lc2k", "LC2K", "LC2K");
 }
-
-// FIXME: This function is temporarily defined for linking to work, since
-// (according to the initial SPIR-V patches) llc unconditionally calls this
-// function.
-// This function will be implemented in the next patch.
-extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeLC2KTargetMC() {
-}
