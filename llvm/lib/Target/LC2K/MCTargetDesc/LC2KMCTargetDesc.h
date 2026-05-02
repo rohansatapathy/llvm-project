@@ -27,7 +27,6 @@ class MCSubtargetInfo;
 class MCRegisterInfo;
 class MCTargetOptions;
 
-// TODO
 MCCodeEmitter *createLC2KMCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx);
 
 MCAsmBackend *createLC2KAsmBackend(const Target &T, const MCSubtargetInfo &STI,
