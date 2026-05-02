@@ -17,6 +17,7 @@
 #include "LC2KTargetStreamer.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/MC/LaneBitmask.h"
+#include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
