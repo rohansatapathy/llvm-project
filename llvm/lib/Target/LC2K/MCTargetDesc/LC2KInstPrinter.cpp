@@ -12,7 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "LC2KInstPrinter.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -45,7 +47,12 @@ void LC2KInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     return;
   }
 
-  llvm_unreachable("Unknown operand kind in printOperand");
+  if (MO.isExpr()) {
+    MAI.printExpr(O, *MO.getExpr());
+    return;
+  }
+
+  report_fatal_error("unknown operand kind in LC2K printOperand");
 }
 
 void LC2KInstPrinter::printImmediate(raw_ostream &O, int64_t Imm) { O << Imm; }
