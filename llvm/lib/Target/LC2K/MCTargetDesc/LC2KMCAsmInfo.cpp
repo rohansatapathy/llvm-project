@@ -42,5 +42,5 @@ LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T) {
   HasDotTypeDotSizeDirective = false;
   HasSingleParameterDotFile = false;
 
-  LabelSuffix = "\t";
+  LabelSuffix = "";
 }
