@@ -16,6 +16,8 @@
 
 #include "llvm/Support/DataTypes.h"
 
+#include <memory>
+
 namespace llvm {
 
 class MCAsmBackend;
@@ -23,6 +25,7 @@ class MCCodeEmitter;
 class MCContext;
 class MCInstrInfo;
 class Target;
+class MCObjectTargetWriter;
 class MCSubtargetInfo;
 class MCRegisterInfo;
 class MCTargetOptions;
@@ -32,6 +35,8 @@ MCCodeEmitter *createLC2KMCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx);
 MCAsmBackend *createLC2KAsmBackend(const Target &T, const MCSubtargetInfo &STI,
                                    const MCRegisterInfo &MRI,
                                    const MCTargetOptions &Options);
+
+std::unique_ptr<MCObjectTargetWriter> createLC2KELFObjectWriter(uint8_t OSABI);
 
 } // namespace llvm
 
