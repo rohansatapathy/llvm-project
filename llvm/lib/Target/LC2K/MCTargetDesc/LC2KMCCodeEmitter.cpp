@@ -135,9 +135,8 @@ void LC2KMCCodeEmitter::encodeInstruction(
     SmallVectorImpl<MCFixup> &Fixups,
     const MCSubtargetInfo &SubtargetInfo) const {
 
-  // TODO: Verify that big-endian is the right choice here
   unsigned Value = getBinaryCodeForInstr(Inst, Fixups, SubtargetInfo);
-  support::endian::write<uint32_t>(CB, Value, llvm::endianness::big);
+  support::endian::write<uint32_t>(CB, Value, llvm::endianness::little);
 }
 
 MCCodeEmitter *llvm::createLC2KMCCodeEmitter(const MCInstrInfo &InstrInfo,
