@@ -29,6 +29,7 @@
 #include "ToolChains/Haiku.h"
 #include "ToolChains/Hexagon.h"
 #include "ToolChains/Hurd.h"
+#include "ToolChains/LC2K.h"
 #include "ToolChains/LFILinux.h"
 #include "ToolChains/Lanai.h"
 #include "ToolChains/Linux.h"
@@ -7006,6 +7007,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         break;
       case llvm::Triple::lanai:
         TC = std::make_unique<toolchains::LanaiToolChain>(*this, Target, Args);
+        break;
+      case llvm::Triple::lc2k:
+        TC = std::make_unique<toolchains::LC2KToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::xcore:
         TC = std::make_unique<toolchains::XCoreToolChain>(*this, Target, Args);
