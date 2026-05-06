@@ -4,7 +4,8 @@ add_llvm_component_library(LLVMLC2KDesc
   LC2KMCAsmInfo.cpp
   LC2KMCCodeEmitter.cpp
   LC2KTargetStreamer.cpp
-  LC2KMCAsmBackend.cpp
+  LC2KAsmBackend.cpp
+  LC2KELFObjectWriter.cpp
 
   LINK_COMPONENTS
   CodeGenTypes

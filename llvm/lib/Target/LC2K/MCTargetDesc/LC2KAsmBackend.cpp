@@ -29,6 +29,8 @@ public:
   virtual std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override;
 
+  MCFixupKindInfo getFixupKindInfo(MCFixupKind Kind) const override;
+
   virtual void applyFixup(const MCFragment &F, const MCFixup &Fixup,
                           const MCValue &Target, uint8_t *Data, uint64_t Value,
                           bool IsResolved) override;
@@ -42,6 +44,26 @@ public:
 std::unique_ptr<MCObjectTargetWriter>
 LC2KAsmBackend::createObjectTargetWriter() const {
   return createLC2KELFObjectWriter(MCELFObjectTargetWriter::getOSABI(OSType));
+}
+
+MCFixupKindInfo LC2KAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
+  static const MCFixupKindInfo Infos[LC2K::NumTargetFixupKinds] = {
+      // name                     offset  bits  flags
+      {"fixup_lc2k_none", 0, 0, 0},
+      {"fixup_lc2k_32", 0, 32, 0},
+      {"fixup_lc2k_20", 0, 20, 0},
+      {"fixup_lc2k_pcplus1rel", 0, 20, 0},
+  };
+
+  static_assert(std::size(Infos) == LC2K::NumTargetFixupKinds,
+                "Not all fixup kinds added to Infos array");
+
+  if (Kind < FirstTargetFixupKind)
+    return MCAsmBackend::getFixupKindInfo(Kind);
+
+  assert(unsigned(Kind - FirstTargetFixupKind) < std::size(Infos) &&
+         "Invalid kind!");
+  return Infos[Kind - FirstTargetFixupKind];
 }
 
 static uint32_t adjustFixupValue(unsigned Kind, uint64_t Value) {
