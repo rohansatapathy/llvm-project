@@ -10,6 +10,7 @@
 #include "TargetInfo/LC2KTargetInfo.h"
 
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCAsmMacro.h"
 #include "llvm/MC/MCContext.h"
@@ -18,6 +19,7 @@
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCRegister.h"
+#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
@@ -303,8 +305,18 @@ bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
 
     if (!MaybeOpcode.has_value()) {
       if (OpcodeToken.getIdentifier() == ".fill") {
-        getStreamer().emitLabel(Sym, NameLoc);
         Lexer.Lex();
+
+        // Switch to .data before emitting the label so the symbol is placed
+        // in the correct section.
+        if (CurrentSection != Section::Data) {
+          MCSection *DataSection = getContext().getELFSection(
+              ".data", ELF::SHT_PROGBITS, ELF::SHF_ALLOC | ELF::SHF_WRITE);
+          getStreamer().switchSection(DataSection);
+          CurrentSection = Section::Data;
+        }
+
+        getStreamer().emitLabel(Sym, NameLoc);
 
         if (parseDirective(OpcodeToken).isFailure())
           return true;
@@ -514,10 +526,15 @@ ParseStatus LC2KAsmParser::parseDirective(AsmToken DirectiveID) {
              ParseStatus::Failure;
     }
 
+    if (CurrentSection != Section::Data) {
+      MCSection *DataSection = getContext().getELFSection(
+          ".data", ELF::SHT_PROGBITS, ELF::SHF_ALLOC | ELF::SHF_WRITE);
+      getStreamer().switchSection(DataSection);
+      CurrentSection = Section::Data;
+    }
+
     Parser.eatToEndOfStatement();
     getStreamer().emitValue(ValueExpr, 4, ValueLoc);
-
-    CurrentSection = Section::Data;
 
     return ParseStatus::Success;
   }
