@@ -44,7 +44,6 @@ static MCInstrInfo *createLC2KMCInstrInfo() {
 
 static MCRegisterInfo *createLC2KMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  // TODO: Set return address once ABI is stabilized
   InitLC2KMCRegisterInfo(X, LC2K::R15);
   return X;
 }
