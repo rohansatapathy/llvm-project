@@ -32,6 +32,7 @@ class LC2KInst<dag outs, dag ins, list<dag> pattern = []>
 
   let Namespace = "LC2K";
   let DecoderNamespace = "LC2K";
+  let Size = 4;
 
   LC2KOpcode Opcode;
   let Inst{31-28} = Opcode.Value;
@@ -73,8 +74,12 @@ class LC2KInstITypeWriteReg<LC2KOpcode opcode> :
 }
 
 // Applies to sw and all branches because they don't write to a register
+//
+// IMPORTANT: regA comes after regB in the ins definition so that when
+// doing FrameIndex elimination, the base and offset are in the same place
+// within the MachineInstr.
 class LC2KInstITypeReadOnly<LC2KOpcode opcode> : 
-  LC2KInst<(outs), (ins GPR:$regA, GPR: $regB, LC2KOffset:$offset)> {
+  LC2KInst<(outs), (ins GPR:$regB, GPR:$regA, LC2KOffset:$offset)> {
   bits<4> regA;
   bits<4> regB;
   bits<20> offset;
