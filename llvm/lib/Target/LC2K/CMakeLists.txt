@@ -19,9 +19,9 @@ add_llvm_target(LC2KCodeGen
   PARTIAL_SOURCES_INTENDED
   LC2KTargetMachine.cpp
   LC2KAsmPrinter.cpp
-  # LC2KRegisterInfo.cpp
+  LC2KRegisterInfo.cpp
   # LC2KSubtarget.cpp
-  # LC2KFrameLowering.cpp
+  LC2KFrameLowering.cpp
   # LC2KInstrInfo.cpp
 
   LINK_COMPONENTS
