@@ -9,6 +9,7 @@
 include "llvm/Target/Target.td"
 
 include "LC2KRegisterInfo.td"
+include "LC2KCallingConv.td"
 include "LC2KInstrFormats.td"
 include "LC2KInstrInfo.td"
 
