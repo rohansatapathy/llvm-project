@@ -11,10 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "LC2KTargetMachine.h"
+#include "LC2K.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/PassRegistry.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compiler.h"
 
@@ -22,6 +24,9 @@ using namespace llvm;
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeLC2KTarget() {
   RegisterTargetMachine<LC2KTargetMachine> X(getTheLC2KTarget());
+  auto *PR = PassRegistry::getPassRegistry();
+
+  initializeLC2KAsmPrinterPass(*PR);
 }
 
 static Reloc::Model getEffectiveRelocModel(std::optional<Reloc::Model> RM) {
@@ -46,7 +51,8 @@ LC2KTargetMachine::LC2KTargetMachine(const Target &T, const Triple &TT,
     : CodeGenTargetMachineImpl(T, TT.computeDataLayout(), TT, CPU, FS, Options,
                                getEffectiveRelocModel(RM),
                                getLC2KEffectiveCodeModel(CM), OL),
-      TLOF(std::make_unique<TargetLoweringObjectFileELF>()) {
+      TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
+      Subtarget(TT, CPU.str(), FS.str(), *this) {
   initAsmInfo();
 }
 
@@ -60,6 +66,9 @@ public:
   LC2KTargetMachine &getLC2KTargetMachine() const {
     return getTM<LC2KTargetMachine>();
   }
+
+  // TODO: Implement this properly
+  bool addInstSelector() override { return false; }
 };
 } // namespace
 

@@ -22,7 +22,15 @@
 
 namespace llvm {
 
+class LC2KSubtarget;
+
 class LC2KInstrInfo : public LC2KGenInstrInfo {
+  const LC2KRegisterInfo RI;
+
+public:
+  explicit LC2KInstrInfo(const LC2KSubtarget &STI);
+
+  const LC2KRegisterInfo &getRegisterInfo() const { return RI; }
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                    const DebugLoc &DL, Register DestReg, Register SrcReg,
