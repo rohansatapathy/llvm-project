@@ -12,11 +12,15 @@
 
 #include "LC2KInstrInfo.h"
 #include "LC2KRegisterInfo.h"
+#include "LC2KSubtarget.h"
 
 using namespace llvm;
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "LC2KGenInstrInfo.inc"
+
+LC2KInstrInfo::LC2KInstrInfo(const LC2KSubtarget &STI)
+    : LC2KGenInstrInfo(STI, *STI.getRegisterInfo()) {}
 
 void LC2KInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI,
