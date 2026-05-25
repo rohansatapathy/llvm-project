@@ -13,12 +13,14 @@
 #ifndef LLVM_LIB_TARGET_LC2K_LC2KTARGETMACHINE_H
 #define LLVM_LIB_TARGET_LC2K_LC2KTARGETMACHINE_H
 
+#include "LC2KSubtarget.h"
 #include "llvm/CodeGen/CodeGenTargetMachineImpl.h"
 #include <optional>
 
 namespace llvm {
 class LC2KTargetMachine : public CodeGenTargetMachineImpl {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
+  LC2KSubtarget Subtarget;
 
 public:
   LC2KTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
@@ -26,6 +28,11 @@ public:
                     std::optional<Reloc::Model> RM,
                     std::optional<CodeModel::Model> CM, CodeGenOptLevel OL,
                     bool JIT);
+
+  const LC2KSubtarget *getSubtargetImpl() const { return &Subtarget; }
+  const LC2KSubtarget *getSubtargetImpl(const Function &) const override {
+    return &Subtarget;
+  }
 
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 
