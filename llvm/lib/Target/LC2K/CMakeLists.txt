@@ -17,6 +17,7 @@ add_public_tablegen_target(LC2KCommonTableGen)
 
 add_llvm_target(LC2KCodeGen
   GISel/LC2KCallLowering.cpp
+  GISel/LC2KRegisterBankInfo.cpp
   LC2KTargetMachine.cpp
   LC2KAsmPrinter.cpp
   LC2KRegisterInfo.cpp
