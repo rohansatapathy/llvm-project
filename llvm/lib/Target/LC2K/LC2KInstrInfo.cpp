@@ -20,7 +20,9 @@ using namespace llvm;
 #include "LC2KGenInstrInfo.inc"
 
 LC2KInstrInfo::LC2KInstrInfo(const LC2KSubtarget &STI)
-    : LC2KGenInstrInfo(STI, *STI.getRegisterInfo()) {}
+    : LC2KGenInstrInfo(STI, *STI.getRegisterInfo(), LC2K::ADJCALLSTACKDOWN,
+                       LC2K::ADJCALLSTACKUP, /*CatchRetOpcode=*/~0u,
+                       LC2K::JALR) {}
 
 void LC2KInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI,

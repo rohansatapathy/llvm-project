@@ -68,3 +68,13 @@ void LC2KFrameLowering::emitEpilogue(MachineFunction &MF,
       .addImm(StackSize / 4)
       .setMIFlag(MachineInstr::FrameDestroy);
 }
+
+MachineBasicBlock::iterator LC2KFrameLowering::eliminateCallFramePseudoInstr(
+    MachineFunction &MF, MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator MI) const {
+  // LC2K always reserves the call frame (see hasFPImpl), so the space for
+  // outgoing stack arguments is already folded into the fixed prologue/
+  // epilogue adjustment. No real instructions are needed at the call site
+  // itself; just erase the pseudo.
+  return MBB.erase(MI);
+}

@@ -29,14 +29,17 @@
 
 using namespace llvm;
 
-// TODO: Move this to the ISel file
-#include "LC2KGenCallingConv.inc"
-
 LC2KRegisterInfo::LC2KRegisterInfo() : LC2KGenRegisterInfo(LC2K::RA) {}
 
 const MCPhysReg *
 LC2KRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   return CSR_SaveList;
+}
+
+const uint32_t *
+LC2KRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
+                                       CallingConv::ID CC) const {
+  return CSR_RegMask;
 }
 
 BitVector LC2KRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
