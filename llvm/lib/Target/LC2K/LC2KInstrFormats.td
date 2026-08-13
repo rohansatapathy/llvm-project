@@ -112,3 +112,21 @@ class LC2KInstOType<LC2KOpcode opcode> :
 
   let AsmString = opcode.Name;
 }
+
+// Base class for pseudo-instructions: they have no real LC2K encoding and
+// are always expanded or eliminated before final instruction emission, so
+// (unlike LC2KInst) they don't carry an LC2KOpcode.
+class LC2KPseudo<dag outs, dag ins, list<dag> pattern = []>
+  : Instruction {
+  let Namespace = "LC2K";
+
+  // No real encoding, so no meaningful size.
+  let Size = 0;
+
+  dag OutOperandList = outs;
+  dag InOperandList = ins;
+  let Pattern = pattern;
+
+  let isPseudo = 1;
+  let isCodeGenOnly = 1;
+}

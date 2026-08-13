@@ -13,8 +13,14 @@
 #include "LC2KTargetMachine.h"
 #include "LC2K.h"
 #include "TargetInfo/LC2KTargetInfo.h"
+#include "llvm/CodeGen/GlobalISel/IRTranslator.h"
+#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
+#include "llvm/CodeGen/GlobalISel/Legalizer.h"
+#include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CodeGen.h"
@@ -26,6 +32,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeLC2KTarget() {
   RegisterTargetMachine<LC2KTargetMachine> X(getTheLC2KTarget());
   auto *PR = PassRegistry::getPassRegistry();
 
+  initializeGlobalISel(*PR);
   initializeLC2KAsmPrinterPass(*PR);
 }
 
@@ -67,11 +74,33 @@ public:
     return getTM<LC2KTargetMachine>();
   }
 
-  // TODO: Implement this properly
-  bool addInstSelector() override { return false; }
+  bool addIRTranslator() override;
+  bool addLegalizeMachineIR() override;
+  bool addRegBankSelect() override;
+  bool addGlobalInstructionSelect() override;
 };
 } // namespace
 
 TargetPassConfig *LC2KTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new LC2KPassConfig(*this, PM);
+}
+
+bool LC2KPassConfig::addIRTranslator() {
+  addPass(new IRTranslator());
+  return false;
+}
+
+bool LC2KPassConfig::addLegalizeMachineIR() {
+  addPass(new Legalizer());
+  return false;
+}
+
+bool LC2KPassConfig::addRegBankSelect() {
+  addPass(new RegBankSelect());
+  return false;
+}
+
+bool LC2KPassConfig::addGlobalInstructionSelect() {
+  addPass(new InstructionSelect(getOptLevel()));
+  return false;
 }

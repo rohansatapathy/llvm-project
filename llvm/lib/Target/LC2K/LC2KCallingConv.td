@@ -27,4 +27,18 @@ def CC_LC2K : CallingConv<[
   CCAssignToStack<4, 4>
 ]>;
 
-def CSR : CalleeSavedRegs<(add (sequence "R%i", 8, 14))>;
+// NOTE: RA (R15) is technically caller-saved according to the ABI, but we
+// include it here so that functions that make calls automatically save RA
+// during the prologue/epilogue.
+def CSR : CalleeSavedRegs<(add R15, (sequence "R%i", 8, 14))>;
+
+def RetCC_LC2K : CallingConv<[
+  // Promote i8/i16 args to i32 (this is from Lanai, idk if it's needed)
+  CCIfType<[ i8, i16 ], CCPromoteToType<i32>>,
+
+  // Put return value in register. 
+  // NOTE: Unlike argument passing (CC_LC2K), return value location doesn't
+  // depend on whether values are varargs because variadic return values aren't
+  // a thing.
+  CCIfType<[i32], CCAssignToReg<[ R1 ]>>,
+]>;

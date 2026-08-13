@@ -16,17 +16,20 @@ tablegen(LLVM LC2KGenCallingConv.inc -gen-callingconv)
 add_public_tablegen_target(LC2KCommonTableGen)
 
 add_llvm_target(LC2KCodeGen
+  GISel/LC2KCallLowering.cpp
   LC2KTargetMachine.cpp
   LC2KAsmPrinter.cpp
   LC2KRegisterInfo.cpp
   LC2KSubtarget.cpp
   LC2KFrameLowering.cpp
   LC2KInstrInfo.cpp
+  LC2KISelLowering.cpp
 
   LINK_COMPONENTS
   AsmPrinter
   CodeGen
   Core
+  GlobalISel
   LC2KDesc
   LC2KInfo
   Support

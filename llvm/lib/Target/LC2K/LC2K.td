@@ -23,3 +23,5 @@ def LC2K : Target {
     let InstructionSet = LC2KInstrInfo;
     let AssemblyWriters = [LC2KInstPrinter];
 }
+
+def : ProcessorModel<"generic", NoSchedModel, []>;

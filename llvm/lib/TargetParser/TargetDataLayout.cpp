@@ -558,8 +558,8 @@ static std::string computeLC2KDataLayout() {
   // 64-bit integers should be 64-bit aligned.
   Ret += "-i64:64:64";
 
-  // Pointers are 20 bits and stored in a single word (4 bytes).
-  Ret += "-p:20:32:32";
+  // Pointers are word-sized.
+  Ret += "-p:32:32:32";
 
   return Ret;
 }
