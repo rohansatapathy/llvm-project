@@ -78,8 +78,6 @@ static void addFixup(SmallVectorImpl<MCFixup> &Fixups, const MCExpr *Expr,
     FixupKind = LC2K::fixup_lc2k_20;
     break;
   case LC2K::BEQ:
-  case LC2K::BLT:
-  case LC2K::BLTU:
     FixupKind = LC2K::fixup_lc2k_pcplus1rel;
     PCRel = true;
     break;
