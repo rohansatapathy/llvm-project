@@ -12,6 +12,7 @@ include "LC2KRegisterInfo.td"
 include "LC2KCallingConv.td"
 include "LC2KInstrFormats.td"
 include "LC2KInstrInfo.td"
+include "GISel/LC2KRegisterBanks.td"
 
 defm : RemapAllTargetPseudoPointerOperands<GPR>;
 
