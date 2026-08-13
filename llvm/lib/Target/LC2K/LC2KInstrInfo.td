@@ -56,9 +56,10 @@ def BLT   : LC2KInstITypeReadOnly<OPC_BLT>;
 def BLTU  : LC2KInstITypeReadOnly<OPC_BLTU>;
 }  // isBranch = true, isTerminator = true
 
-let isIndirectBranch = true, isTerminator = true in {
+// JALR is only built directly for a a return (CALL is a separate pseudo).
+let isIndirectBranch = true, isTerminator = true, isReturn = true in {
 def JALR  : LC2KInstJType<OPC_JALR>;
-}  // isIndirectBranch = true, isTerminator = true
+}  // isIndirectBranch = true, isTerminator = true, isReturn = true
 
 def NOR   : LC2KInstRType<OPC_NOR>;
 def NOOP  : LC2KInstOType<OPC_NOOP>;
@@ -69,4 +70,34 @@ def ASR   : LC2KInstJType<OPC_ASR>;
 }  // mayLoad = false, mayStore = false
 
 }  // hasSideEffects = false
+
+//===----------------------------------------------------------------------===//
+// Pseudo-instructions
+//===----------------------------------------------------------------------===//
+
+// ADJCALLSTACKDOWN/UP implicitly use/def R14 (SP) because prolog-epilog
+// rewriting needs to know they may adjust the stack pointer, even though on
+// LC2K (which always reserves the call frame, see
+// LC2KFrameLowering::hasFPImpl) they end up being erased without emitting
+// any real instructions.
+let Defs = [R14], Uses = [R14] in {
+def ADJCALLSTACKDOWN : LC2KPseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2)>;
+def ADJCALLSTACKUP   : LC2KPseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2)>;
+} // Defs = [R14], Uses = [R14]
+
+// Puts address of external symbol (e.g. compiler-inserted libcall) into a
+// regster -- JALR can't take symbol name as argument. No LLVM-standard
+// opcode for this, so need custom pseudo.
+def ADDR_ES : LC2KPseudo<(outs GPR:$dst), (ins i32imm:$sym)>;
+
+// Represents a call to $callee. Deliberately not modeled as JALR directly:
+// a call falls through to the next instruction in the same block once the
+// callee returns, so (unlike JALR's use as a return) it must not be a
+// terminator. Implicitly defines RA (R15), since that's where the real
+// JALR this eventually lowers to will store the return address. Needs a
+// real lowering to JALR R15, $callee once instruction selection exists for
+// LC2K.
+let isCall = 1, Defs = [R15] in {
+def CALL : LC2KPseudo<(outs), (ins GPR:$callee)>;
+}
 

@@ -1,0 +1,9 @@
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+
+; CHECK: name: f
+; CHECK: %0:_(s32) = G_CONSTANT i32 42
+; CHECK: $r1 = COPY %0(s32)
+; CHECK: $r0 = JALR killed $r15, implicit $r1
+define i32 @f() {
+  ret i32 42
+}

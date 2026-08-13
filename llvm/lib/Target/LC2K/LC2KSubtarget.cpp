@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "LC2KSubtarget.h"
+#include "GISel/LC2KCallLowering.h"
 #include "LC2KInstrInfo.h"
+#include "LC2KTargetMachine.h"
 
 using namespace llvm;
 
@@ -22,8 +24,24 @@ using namespace llvm;
 #include "LC2KGenSubtargetInfo.inc"
 
 LC2KSubtarget::LC2KSubtarget(const Triple &TT, const std::string &CPU,
-                             const std::string &FS, const TargetMachine &TM)
-    : LC2KGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(*this),
-      FrameLowering() {}
+                             const std::string &FS, const LC2KTargetMachine &TM)
+    : LC2KGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(*this), FrameLowering(),
+      TLInfo(TM, *this) {
+  CallLoweringInfo.reset(new LC2KCallLowering(*getTargetLowering()));
+}
 
 void LC2KSubtarget::anchor() {}
+
+const CallLowering *LC2KSubtarget::getCallLowering() const {
+  return CallLoweringInfo.get();
+}
+
+InstructionSelector *LC2KSubtarget::getInstructionSelector() const {
+  return nullptr;
+}
+
+const LegalizerInfo *LC2KSubtarget::getLegalizerInfo() const { return nullptr; }
+
+const RegisterBankInfo *LC2KSubtarget::getRegBankInfo() const {
+  return nullptr;
+}
