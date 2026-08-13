@@ -257,10 +257,6 @@ static std::optional<unsigned> mnemonicToOpcode(StringRef Name) {
       .Case("noop", LC2K::NOOP)
       .Case("addi", LC2K::ADDI)
       .Case("nand", LC2K::NAND)
-      .Case("blt", LC2K::BLT)
-      .Case("bltu", LC2K::BLTU)
-      .Case("lsr", LC2K::LSR)
-      .Case("asr", LC2K::ASR)
       .Default(std::nullopt);
 }
 
@@ -389,8 +385,6 @@ bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
   case LC2K::LW:
   case LC2K::SW:
   case LC2K::BEQ:
-  case LC2K::BLT:
-  case LC2K::BLTU:
   case LC2K::ADDI: {
     // I-type instructions have two register operands and one either integer
     // or label operand for offset field
@@ -435,9 +429,7 @@ bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
 
     break;
   }
-  case LC2K::JALR:
-  case LC2K::LSR:
-  case LC2K::ASR: {
+  case LC2K::JALR: {
     // J-type instructions have two register operands
     MCRegister RegA, RegB;
     SMLoc RegAStartLoc, RegAEndLoc, RegBStartLoc, RegBEndLoc;

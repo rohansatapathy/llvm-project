@@ -20,10 +20,6 @@ def OPC_HALT  : LC2KOpcode<"halt",  0b0110>;
 def OPC_NOOP  : LC2KOpcode<"noop",  0b0111>;
 def OPC_ADDI  : LC2KOpcode<"addi",  0b1000>;
 def OPC_NAND  : LC2KOpcode<"nand",  0b1001>;
-def OPC_BLT   : LC2KOpcode<"blt",   0b1010>;
-def OPC_BLTU  : LC2KOpcode<"bltu",  0b1011>;
-def OPC_LSR   : LC2KOpcode<"lsr",   0b1100>;
-def OPC_ASR   : LC2KOpcode<"asr",   0b1101>;
 
 let 
   mayLoad = false, 
@@ -52,8 +48,6 @@ def ADDI  : LC2KInstITypeWriteReg<OPC_ADDI>;
 
 let isBranch = true, isTerminator = true in {
 def BEQ   : LC2KInstITypeReadOnly<OPC_BEQ>;
-def BLT   : LC2KInstITypeReadOnly<OPC_BLT>;
-def BLTU  : LC2KInstITypeReadOnly<OPC_BLTU>;
 }  // isBranch = true, isTerminator = true
 
 // JALR is only built directly for a a return (CALL is a separate pseudo).
@@ -64,8 +58,6 @@ def JALR  : LC2KInstJType<OPC_JALR>;
 def NOR   : LC2KInstRType<OPC_NOR>;
 def NOOP  : LC2KInstOType<OPC_NOOP>;
 def NAND  : LC2KInstRType<OPC_NAND>;
-def LSR   : LC2KInstJType<OPC_LSR>;
-def ASR   : LC2KInstJType<OPC_ASR>;
 
 }  // mayLoad = false, mayStore = false
 
