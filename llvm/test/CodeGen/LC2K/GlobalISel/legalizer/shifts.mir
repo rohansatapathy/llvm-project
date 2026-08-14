@@ -1,0 +1,68 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define void @shl() { ret void }
+  define void @lshr() { ret void }
+  define void @ashr() { ret void }
+...
+---
+name:            shl
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: shl
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: CALL {{%[0-9]+}}, csr, implicit-def $r15, implicit $r1, implicit $r2, implicit-def $r1
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SHL %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            lshr
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: lshr
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_LSHR %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ashr
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: ashr
+    ; CHECK: ADDR_ES &__lc2k_ashr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_ASHR %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

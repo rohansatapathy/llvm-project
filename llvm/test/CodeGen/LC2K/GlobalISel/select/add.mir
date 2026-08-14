@@ -1,0 +1,35 @@
+# RUN: llc -march=lc2k -run-pass=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define i32 @f(i32 %a, i32 %b) {
+    %c = add i32 %a, %b
+    ret i32 %c
+  }
+...
+---
+name:            f
+legalized:       true
+regBankSelected: true
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: gprb }
+  - { id: 1, class: gprb }
+  - { id: 2, class: gprb }
+liveins:
+  - { reg: '$r1', virtual-reg: '' }
+  - { reg: '$r2', virtual-reg: '' }
+body:             |
+  bb.0 (%ir-block.0):
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: f
+    ; CHECK: %0:gpr = COPY $r1
+    ; CHECK: %1:gpr = COPY $r2
+    ; CHECK: %2:gpr = ADD %0, %1
+    ; CHECK: $r1 = COPY %2
+    ; CHECK: $r0 = JALR killed $r15, implicit $r1
+    %0:gprb(s32) = COPY $r1
+    %1:gprb(s32) = COPY $r2
+    %2:gprb(s32) = G_ADD %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

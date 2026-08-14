@@ -86,10 +86,33 @@ def ADDR_ES : LC2KPseudo<(outs GPR:$dst), (ins i32imm:$sym)>;
 // a call falls through to the next instruction in the same block once the
 // callee returns, so (unlike JALR's use as a return) it must not be a
 // terminator. Implicitly defines RA (R15), since that's where the real
-// JALR this eventually lowers to will store the return address. Needs a
-// real lowering to JALR R15, $callee once instruction selection exists for
-// LC2K.
+// JALR_CALL this lowers to will store the return address.
 let isCall = 1, Defs = [R15] in {
 def CALL : LC2KPseudo<(outs), (ins GPR:$callee)>;
 }
+
+// Real (encoded) form of JALR used specifically for calls, selected from
+// the CALL pseudo above. Identical encoding to JALR -- both are simply
+// "jump to regA, save return address in regB" -- but unlike JALR this form
+// is explicitly not a terminator/return, since a call falls through to the
+// next instruction once the callee returns. isCodeGenOnly since assembly
+// should only ever spell this encoding as `jalr` (the return/tailcall
+// form); the disassembler still decodes it back to plain JALR.
+let isCall = 1, isCodeGenOnly = 1 in
+def JALR_CALL : LC2KInstJType<OPC_JALR>;
+
+// PSEUDO_SELECT and PSEUDO_CMP01 stand in for G_SELECT and G_ICMP (eq/ne):
+// both require real, multi-block control flow to implement on LC2K (no
+// conditional move and no compare-into-register instruction), which can't
+// safely be built directly inside InstructionSelector::select() -- GISel's
+// InstructionSelect pass is itself mid-traversal of the CFG (via
+// post_order) while select() runs, so splitting the block being visited
+// there corrupts that traversal. Instead these are expanded into the real
+// branch/PHI sequences by a dedicated LC2KExpandPseudos pass that runs
+// after InstructionSelect has fully finished, once the CFG is safe to
+// mutate again. See GISel/LC2KExpandPseudos.cpp.
+def PSEUDO_SELECT : LC2KPseudo<(outs GPR:$dst),
+                               (ins GPR:$cond, GPR:$true, GPR:$false)>;
+def PSEUDO_CMP01 : LC2KPseudo<(outs GPR:$dst),
+                              (ins GPR:$lhs, GPR:$rhs, i32imm:$isEq)>;
 

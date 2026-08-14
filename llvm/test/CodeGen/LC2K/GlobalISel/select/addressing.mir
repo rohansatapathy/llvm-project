@@ -1,0 +1,51 @@
+# RUN: llc -march=lc2k -run-pass=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  @g = global i32 0
+  define void @f() {
+    %s = alloca i32
+    %p1 = getelementptr i32, ptr @g, i32 1
+    store i32 4, ptr %s
+    store i32 4, ptr %p1
+    ret void
+  }
+...
+---
+name:            f
+legalized:       true
+regBankSelected: true
+tracksRegLiveness: true
+stack:
+  - { id: 0, name: s, size: 4, alignment: 4 }
+registers:
+  - { id: 0, class: gprb }
+  - { id: 1, class: gprb }
+  - { id: 2, class: gprb }
+  - { id: 3, class: gprb }
+  - { id: 4, class: gprb }
+body:             |
+  bb.0 (%ir-block.0):
+    ; CHECK-LABEL: name: f
+    ; A store directly to a frame index folds straight into SW's
+    ; (frame-index, byte-offset) operands -- eliminateFrameIndex does the
+    ; byte->word conversion later, at PEI time.
+    ; CHECK: %1:gpr = ADDI $r0, @g
+    ; CHECK: %4:gpr = ADDI $r0, 4
+    ; A global-relative constant offset (@g + 4 bytes) is not folded into a
+    ; single symbolic offset in v1: the G_PTR_ADD materializes its own
+    ; address (word offset = byte offset / 4 = 1) on top of the already
+    ; materialized global base ...
+    ; CHECK: %3:gpr = ADDI %1, 1
+    ; CHECK: SW %4, %stack.0.s, 0
+    ; ... and the store then just uses that already-materialized register
+    ; as a plain base with zero offset.
+    ; CHECK: SW %4, %3, 0
+    ; CHECK: $r0 = JALR killed $r15
+    %1:gprb(p0) = G_GLOBAL_VALUE @g
+    %4:gprb(s32) = G_CONSTANT i32 4
+    %0:gprb(p0) = G_FRAME_INDEX %stack.0.s
+    %2:gprb(s32) = G_CONSTANT i32 4
+    %3:gprb(p0) = G_PTR_ADD %1, %2(s32)
+    G_STORE %4(s32), %0(p0) :: (store (s32) into %ir.s)
+    G_STORE %4(s32), %3(p0) :: (store (s32) into %ir.p1)
+    $r0 = JALR killed $r15
+...

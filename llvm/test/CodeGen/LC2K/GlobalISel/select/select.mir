@@ -1,0 +1,51 @@
+# RUN: llc -march=lc2k -run-pass=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define i32 @f(i32 %a, i32 %b, i32 %c) {
+    %cmp = icmp ne i32 %c, 0
+    %s = select i1 %cmp, i32 %a, i32 %b
+    ret i32 %s
+  }
+...
+---
+name:            f
+legalized:       true
+regBankSelected: true
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: gprb }
+  - { id: 1, class: gprb }
+  - { id: 2, class: gprb }
+  - { id: 3, class: gprb }
+  - { id: 4, class: gprb }
+  - { id: 5, class: gprb }
+liveins:
+  - { reg: '$r1', virtual-reg: '' }
+  - { reg: '$r2', virtual-reg: '' }
+  - { reg: '$r3', virtual-reg: '' }
+body:             |
+  bb.0 (%ir-block.0):
+    liveins: $r1, $r2, $r3
+
+    ; CHECK-LABEL: name: f
+    ; G_ICMP (ne here) and G_SELECT both become placeholder pseudos,
+    ; expanded into real branch/PHI sequences later by LC2KExpandPseudos
+    ; (see the "no fusion in v1" note in LC2KInstructionSelector.cpp) --
+    ; correctness doesn't depend on fusing them, since PSEUDO_SELECT works
+    ; against any already-materialized condition register.
+    ; CHECK: %0:gpr = COPY $r1
+    ; CHECK: %1:gpr = COPY $r2
+    ; CHECK: %2:gpr = COPY $r3
+    ; CHECK: %3:gpr = ADDI $r0, 0
+    ; CHECK: %4:gpr = PSEUDO_CMP01 %2, %3, 0
+    ; CHECK: %5:gpr = PSEUDO_SELECT %4, %0, %1
+    ; CHECK: $r1 = COPY %5
+    ; CHECK: $r0 = JALR killed $r15, implicit $r1
+    %0:gprb(s32) = COPY $r1
+    %1:gprb(s32) = COPY $r2
+    %2:gprb(s32) = COPY $r3
+    %3:gprb(s32) = G_CONSTANT i32 0
+    %4:gprb(s1) = G_ICMP intpred(ne), %2(s32), %3
+    %5:gprb(s32) = G_SELECT %4(s1), %0, %1
+    $r1 = COPY %5(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

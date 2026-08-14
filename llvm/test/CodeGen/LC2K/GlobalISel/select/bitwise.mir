@@ -1,0 +1,71 @@
+# RUN: llc -march=lc2k -run-pass=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define i32 @f(i32 %a, i32 %b) {
+    %s = sub i32 %a, %b
+    %an = and i32 %a, %b
+    %o = or i32 %a, %b
+    %x = xor i32 %a, %b
+    %t1 = add i32 %s, %an
+    %t2 = add i32 %o, %x
+    %t3 = add i32 %t1, %t2
+    ret i32 %t3
+  }
+...
+---
+name:            f
+legalized:       true
+regBankSelected: true
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: gprb }
+  - { id: 1, class: gprb }
+  - { id: 2, class: gprb }
+  - { id: 3, class: gprb }
+  - { id: 4, class: gprb }
+  - { id: 5, class: gprb }
+  - { id: 6, class: gprb }
+  - { id: 7, class: gprb }
+  - { id: 8, class: gprb }
+liveins:
+  - { reg: '$r1', virtual-reg: '' }
+  - { reg: '$r2', virtual-reg: '' }
+body:             |
+  bb.0 (%ir-block.0):
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: f
+    ; CHECK: %0:gpr = COPY $r1
+    ; CHECK: %1:gpr = COPY $r2
+    ; G_SUB: ~b via NOR(b,b), +1, then a + that.
+    ; CHECK: %15:gpr = NOR %1, %1
+    ; CHECK: %16:gpr = ADDI %15, 1
+    ; CHECK: %2:gpr = ADD %0, %16
+    ; G_AND: De Morgan via NOR.
+    ; CHECK: %13:gpr = NOR %0, %0
+    ; CHECK: %14:gpr = NOR %1, %1
+    ; CHECK: %3:gpr = NOR %13, %14
+    ; G_OR: NOT(NOR(a,b)).
+    ; CHECK: %12:gpr = NOR %0, %1
+    ; CHECK: %4:gpr = NOR %12, %12
+    ; G_XOR: classic 4-NAND circuit.
+    ; CHECK: %9:gpr = NAND %0, %1
+    ; CHECK: %10:gpr = NAND %0, %9
+    ; CHECK: %11:gpr = NAND %1, %9
+    ; CHECK: %5:gpr = NAND %10, %11
+    ; CHECK: %6:gpr = ADD %2, %3
+    ; CHECK: %7:gpr = ADD %4, %5
+    ; CHECK: %8:gpr = ADD %6, %7
+    ; CHECK: $r1 = COPY %8
+    ; CHECK: $r0 = JALR killed $r15, implicit $r1
+    %0:gprb(s32) = COPY $r1
+    %1:gprb(s32) = COPY $r2
+    %2:gprb(s32) = G_SUB %0, %1
+    %3:gprb(s32) = G_AND %0, %1
+    %4:gprb(s32) = G_OR %0, %1
+    %5:gprb(s32) = G_XOR %0, %1
+    %6:gprb(s32) = G_ADD %2, %3
+    %7:gprb(s32) = G_ADD %4, %5
+    %8:gprb(s32) = G_ADD %6, %7
+    $r1 = COPY %8(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

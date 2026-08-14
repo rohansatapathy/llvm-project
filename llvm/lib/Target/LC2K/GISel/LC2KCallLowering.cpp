@@ -288,8 +288,10 @@ bool LC2KCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
     CalleeReg =
         MIRBuilder.buildGlobalValue(PtrTy, Info.Callee.getGlobal()).getReg(0);
   } else if (Info.Callee.isSymbol()) {
-    LLT PtrTy = LLT::pointer(0, 32);
-    CalleeReg = MRI.createGenericVirtualRegister(PtrTy);
+    // ADDR_ES is a real (non-generic) pseudo whose def is already declared
+    // GPR-class, so its destination register must be created as such
+    // directly rather than as a generic vreg.
+    CalleeReg = MRI.createVirtualRegister(&LC2K::GPRRegClass);
     MIRBuilder.buildInstr(LC2K::ADDR_ES)
         .addDef(CalleeReg)
         .addExternalSymbol(Info.Callee.getSymbolName());

@@ -1,0 +1,44 @@
+# RUN: llc -march=lc2k -run-pass=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define i32 @f(ptr %p) {
+    %v = load i32, ptr %p
+    %v2 = add i32 %v, 1
+    store i32 %v2, ptr %p
+    ret i32 %v2
+  }
+...
+---
+name:            f
+legalized:       true
+regBankSelected: true
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: gprb }
+  - { id: 1, class: gprb }
+  - { id: 2, class: gprb }
+  - { id: 3, class: gprb }
+liveins:
+  - { reg: '$r1', virtual-reg: '' }
+body:             |
+  bb.0 (%ir-block.0):
+    liveins: $r1
+
+    ; CHECK-LABEL: name: f
+    ; A pointer that isn't a frame index/global/foldable G_PTR_ADD (here, a
+    ; plain incoming register) selects as a plain register base with a
+    ; zero-immediate offset.
+    ; CHECK: %0:gpr = COPY $r1
+    ; CHECK: %2:gpr = ADDI $r0, 1
+    ; CHECK: %1:gpr = LW %0, 0
+    ; CHECK: %3:gpr = ADD %1, %2
+    ; CHECK: SW %3, %0, 0
+    ; CHECK: $r1 = COPY %3
+    ; CHECK: $r0 = JALR killed $r15, implicit $r1
+    %0:gprb(p0) = COPY $r1
+    %2:gprb(s32) = G_CONSTANT i32 1
+    %1:gprb(s32) = G_LOAD %0(p0) :: (load (s32) from %ir.p)
+    %3:gprb(s32) = G_ADD %1, %2
+    G_STORE %3(s32), %0(p0) :: (store (s32) into %ir.p)
+    $r1 = COPY %3(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

@@ -23,6 +23,8 @@ class LC2KTargetMachine;
 
 void initializeLC2KAsmPrinterPass(PassRegistry &);
 
+FunctionPass *createLC2KExpandPseudosPass();
+
 } // namespace llvm
 
 #endif // LLVM_LIB_TARGET_LC2K_LC2K_H
