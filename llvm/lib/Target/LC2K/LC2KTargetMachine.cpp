@@ -60,6 +60,10 @@ LC2KTargetMachine::LC2KTargetMachine(const Target &T, const Triple &TT,
                                getLC2KEffectiveCodeModel(CM), OL),
       TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, CPU.str(), FS.str(), *this) {
+  // LC2K only implements the GlobalISel pipeline; there is no
+  // SelectionDAGISel, so GlobalISel must be selected unconditionally rather
+  // than relying on the -global-isel command-line flag.
+  this->Options.EnableGlobalISel = true;
   initAsmInfo();
 }
 
@@ -78,6 +82,7 @@ public:
   bool addLegalizeMachineIR() override;
   bool addRegBankSelect() override;
   bool addGlobalInstructionSelect() override;
+  void addPreRegAlloc() override;
 };
 } // namespace
 
@@ -103,4 +108,12 @@ bool LC2KPassConfig::addRegBankSelect() {
 bool LC2KPassConfig::addGlobalInstructionSelect() {
   addPass(new InstructionSelect(getOptLevel()));
   return false;
+}
+
+void LC2KPassConfig::addPreRegAlloc() {
+  // Expands the PSEUDO_SELECT/PSEUDO_CMP01 placeholders InstructionSelect
+  // leaves behind for G_SELECT/G_ICMP into real branch/PHI sequences; see
+  // GISel/LC2KExpandPseudos.cpp for why this can't happen during selection
+  // itself.
+  addPass(createLC2KExpandPseudosPass());
 }

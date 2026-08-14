@@ -1,0 +1,110 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define void @mul() { ret void }
+  define void @sdiv() { ret void }
+  define void @udiv() { ret void }
+  define void @srem() { ret void }
+  define void @urem() { ret void }
+...
+---
+name:            mul
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: mul
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__mulsi3
+    ; CHECK: CALL {{%[0-9]+}}, csr, implicit-def $r15, implicit $r1, implicit $r2, implicit-def $r1
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_MUL %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            sdiv
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: sdiv
+    ; CHECK: ADDR_ES &__divsi3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SDIV %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            udiv
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: udiv
+    ; CHECK: ADDR_ES &__udivsi3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_UDIV %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            srem
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: srem
+    ; CHECK: ADDR_ES &__modsi3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SREM %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            urem
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: urem
+    ; CHECK: ADDR_ES &__umodsi3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_UREM %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

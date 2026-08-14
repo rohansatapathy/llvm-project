@@ -10,6 +10,7 @@
 #define LLVM_LIB_TARGET_LC2K_MCTARGETDESC_LC2KTARGETSTREAMER_H
 
 #include "llvm/MC/MCCodeEmitter.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -72,6 +73,10 @@ public:
 
   void emitValueImpl(const MCExpr *Value, unsigned Size,
                      SMLoc Loc = SMLoc()) override;
+
+  void emitIntValue(uint64_t Value, unsigned Size) override {
+    emitValueImpl(MCConstantExpr::create(Value, getContext()), Size);
+  }
 
   void emitExplicitComments() override;
 

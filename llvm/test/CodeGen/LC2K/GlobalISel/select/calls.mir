@@ -1,0 +1,53 @@
+# RUN: llc -march=lc2k -run-pass=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  define i32 @f(i32 %a, i32 %b) {
+    %v = udiv i32 %a, %b
+    ret i32 %v
+  }
+...
+---
+name:            f
+legalized:       true
+regBankSelected: true
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: gprb }
+  - { id: 1, class: gprb }
+  - { id: 2, class: gprb }
+  - { id: 3, class: gpr }
+  - { id: 4, class: gpr }
+liveins:
+  - { reg: '$r1', virtual-reg: '' }
+  - { reg: '$r2', virtual-reg: '' }
+body:             |
+  bb.0 (%ir-block.0):
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: f
+    ; ADDR_ES lowers to ADDI $dst, R0, $sym, using the same offset-operand
+    ; slot (and fixup_lc2k_20 word-scaling) a global symbol would.
+    ; CHECK: %3:gpr = ADDI $r0, &__udivsi3
+    ; CHECK: ADJCALLSTACKDOWN 0, 0, implicit-def $r14, implicit $r14
+    ; CHECK: $r1 = COPY %0
+    ; CHECK: $r2 = COPY %1
+    ; CALL lowers to JALR_CALL R15, $callee, preserving the regmask and
+    ; implicit arg-use/ret-def operands CallLowering attached and replacing
+    ; the pseudo's implicit-def of R15 with an explicit one (JALR_CALL, not
+    ; JALR: same encoding, but JALR is marked isTerminator/isReturn, which a
+    ; call -- not the end of its block -- must not be).
+    ; CHECK: $r15 = JALR_CALL %3, csr, implicit $r1, implicit $r2, implicit-def $r1
+    ; CHECK: ADJCALLSTACKUP 0, 0, implicit-def $r14, implicit $r14
+    ; CHECK: $r0 = JALR killed $r15, implicit $r1
+    %0:gprb(s32) = COPY $r1
+    %1:gprb(s32) = COPY $r2
+    %3:gpr = ADDR_ES &__udivsi3
+    ADJCALLSTACKDOWN 0, 0, implicit-def $r14, implicit $r14
+    %4:gpr = COPY %3
+    $r1 = COPY %0(s32)
+    $r2 = COPY %1(s32)
+    CALL %4, csr, implicit-def $r15, implicit $r1, implicit $r2, implicit-def $r1
+    ADJCALLSTACKUP 0, 0, implicit-def $r14, implicit $r14
+    %2:gprb(s32) = COPY $r1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

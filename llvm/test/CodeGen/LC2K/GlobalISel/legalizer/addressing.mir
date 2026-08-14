@@ -1,0 +1,33 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+--- |
+  @g = global i32 0
+  define void @f() { ret void }
+...
+---
+name:            f
+legalized:       false
+tracksRegLiveness: true
+stack:
+  - { id: 0, size: 4, alignment: 4 }
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    ; CHECK-LABEL: name: f
+    ; CHECK: legalized: true
+    ; CHECK: %0:_(p0) = G_FRAME_INDEX %stack.0
+    ; CHECK: %1:_(p0) = G_GLOBAL_VALUE @g
+    ; CHECK: %2:_(s32) = G_CONSTANT i32 4
+    ; CHECK: %3:_(p0) = G_PTR_ADD %1, %2(s32)
+    ; CHECK: G_STORE %2(s32), %0(p0) :: (store (s32))
+    ; CHECK: G_STORE %2(s32), %3(p0) :: (store (s32))
+    %0:_(p0) = G_FRAME_INDEX %stack.0
+    %1:_(p0) = G_GLOBAL_VALUE @g
+    %2:_(s32) = G_CONSTANT i32 4
+    %3:_(p0) = G_PTR_ADD %1, %2(s32)
+    G_STORE %2(s32), %0(p0) :: (store (s32))
+    G_STORE %2(s32), %3(p0) :: (store (s32))
+...
