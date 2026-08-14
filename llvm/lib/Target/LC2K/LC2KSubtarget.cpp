@@ -12,9 +12,13 @@
 
 #include "LC2KSubtarget.h"
 #include "GISel/LC2KCallLowering.h"
+#include "GISel/LC2KLegalizerInfo.h"
 #include "GISel/LC2KRegisterBankInfo.h"
 #include "LC2KInstrInfo.h"
 #include "LC2KTargetMachine.h"
+
+// createLC2KInstructionSelector is declared in LC2KSubtarget.h and defined
+// in GISel/LC2KInstructionSelector.cpp.
 
 using namespace llvm;
 
@@ -29,7 +33,10 @@ LC2KSubtarget::LC2KSubtarget(const Triple &TT, const std::string &CPU,
     : LC2KGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(*this), FrameLowering(),
       TLInfo(TM, *this) {
   CallLoweringInfo.reset(new LC2KCallLowering(*getTargetLowering()));
+  Legalizer.reset(new LC2KLegalizerInfo(*this));
   RegBankInfo.reset(new LC2KRegisterBankInfo(*getRegisterInfo()));
+  InstSelector.reset(createLC2KInstructionSelector(
+      TM, *this, *static_cast<const LC2KRegisterBankInfo *>(RegBankInfo.get())));
 }
 
 void LC2KSubtarget::anchor() {}
@@ -39,10 +46,12 @@ const CallLowering *LC2KSubtarget::getCallLowering() const {
 }
 
 InstructionSelector *LC2KSubtarget::getInstructionSelector() const {
-  return nullptr;
+  return InstSelector.get();
 }
 
-const LegalizerInfo *LC2KSubtarget::getLegalizerInfo() const { return nullptr; }
+const LegalizerInfo *LC2KSubtarget::getLegalizerInfo() const {
+  return Legalizer.get();
+}
 
 const RegisterBankInfo *LC2KSubtarget::getRegBankInfo() const {
   return RegBankInfo.get();

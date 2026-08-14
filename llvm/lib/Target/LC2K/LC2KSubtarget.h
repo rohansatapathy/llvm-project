@@ -28,6 +28,14 @@
 
 namespace llvm {
 
+class LC2KRegisterBankInfo;
+class LC2KTargetMachine;
+
+InstructionSelector *
+createLC2KInstructionSelector(const LC2KTargetMachine &TM,
+                              const LC2KSubtarget &Subtarget,
+                              const LC2KRegisterBankInfo &RBI);
+
 class LC2KSubtarget : public LC2KGenSubtargetInfo {
   virtual void anchor();
   LC2KInstrInfo InstrInfo;

@@ -85,7 +85,8 @@ bool LC2KRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   assert(isInt<20>(Offset) &&
          "Stack offsets larger than 20 bits are not supported");
 
-  assert((MI.getOpcode() == LC2K::LW || MI.getOpcode() == LC2K::SW) &&
+  assert((MI.getOpcode() == LC2K::LW || MI.getOpcode() == LC2K::SW ||
+          MI.getOpcode() == LC2K::ADDI) &&
          "Unexpected opcode in frame index elimination");
 
   MI.getOperand(FIOperandNum).ChangeToRegister(LC2K::SP, /*isDef=*/false);

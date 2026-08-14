@@ -2820,6 +2820,15 @@ def LanaiSystemLibrary
 }
 
 //===----------------------------------------------------------------------===//
+// LC2K Runtime Libcalls
+//===----------------------------------------------------------------------===//
+
+def isLC2K : RuntimeLibcallPredicate<"TT.getArch() == Triple::lc2k">;
+
+def LC2KSystemLibrary
+    : SystemRuntimeLibrary<isLC2K, (add DefaultRuntimeLibcallImpls)>;
+
+//===----------------------------------------------------------------------===//
 // Mips16 Runtime Libcalls
 //===----------------------------------------------------------------------===//
 
