@@ -42,5 +42,17 @@ LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T) {
   HasDotTypeDotSizeDirective = false;
   HasSingleParameterDotFile = false;
 
+  // MCAsmInfoELF defaults this to ".L", but LC2KAsmParser has no notion of a
+  // dot-prefixed local label distinct from a directive -- any line starting
+  // with '.' is parsed as a directive. Use a plain identifier prefix instead
+  // (matching the dot-less default MCAsmInfo uses for non-ELF targets) so
+  // temporary/block labels round-trip through the parser. This must stay
+  // non-empty: MCContext::getOrCreateSymbol classifies a symbol as temporary
+  // via StringRef::starts_with(PrivateGlobalPrefix), and an empty prefix
+  // matches every symbol name, silently marking permanent symbols (like
+  // libcall references) as temporary too.
+  PrivateGlobalPrefix = "L";
+  PrivateLabelPrefix = PrivateGlobalPrefix;
+
   LabelSuffix = "";
 }
