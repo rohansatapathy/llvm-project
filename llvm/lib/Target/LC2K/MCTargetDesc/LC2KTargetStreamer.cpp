@@ -31,6 +31,11 @@ LC2KAsmStreamer::LC2KAsmStreamer(MCContext &Context,
     : MCStreamer(Context), OSOwner(std::move(OS)), OS(*OSOwner),
       MAI(Context.getAsmInfo()), InstPrinter(std::move(Printer)),
       CommentStream(CommentToEmit) {
+  // Unlike object-file emission, this streamer prints basic block labels as
+  // literal text (e.g. as branch targets), so temporary symbols need real
+  // names rather than being unnamed and resolved solely via fixups.
+  Context.setUseNamesOnTempLabels(true);
+
   auto *TO = Context.getTargetOptions();
   if (!TO)
     return;
