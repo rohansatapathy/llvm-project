@@ -1,0 +1,156 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_S/UADDSAT, G_S/USUBSAT, and G_S/USHLSAT have no LC2K-specific rule and
+# fall through to .lower(): their generic expansions bottom out entirely in
+# ops LC2K's legalizer already finishes handling -- G_ADD/G_SUB (legal),
+# G_SHL/G_ASHR/G_LSHR (customFor -> __lc2k_shl/__lc2k_ashr/__lc2k_lshr
+# libcalls), G_SELECT at {s32,s1} (legal), and a relational G_ICMP (->
+# __lc2k_slt/__lc2k_ult libcall), as described in LC2KLegalizerInfo.cpp.
+# This just confirms the expansion legalizes cleanly end to end.
+
+--- |
+  define void @saddsat() { ret void }
+  define void @uaddsat() { ret void }
+  define void @ssubsat() { ret void }
+  define void @usubsat() { ret void }
+  define void @sshlsat() { ret void }
+  define void @ushlsat() { ret void }
+...
+---
+name:            saddsat
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: saddsat
+    ; CHECK: legalized: true
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SADDSAT %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            uaddsat
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: uaddsat
+    ; CHECK: legalized: true
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_UADDSAT %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ssubsat
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: ssubsat
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SSUBSAT %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            usubsat
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: usubsat
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_USUBSAT %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            sshlsat
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: sshlsat
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_ashr
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SSHLSAT %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ushlsat
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: ushlsat
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_USHLSAT %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

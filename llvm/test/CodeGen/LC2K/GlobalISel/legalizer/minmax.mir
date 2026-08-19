@@ -1,0 +1,229 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_SMAX/G_SMIN/G_UMAX/G_UMIN/G_SCMP/G_UCMP/G_ABS/G_ABDS/G_ABDU have no
+# LC2K-specific rule and fall through to .lower(): as described in
+# LC2KLegalizerInfo.cpp, G_S/UMAX and G_S/UMIN lower to a relational G_ICMP
+# (-> __lc2k_slt/__lc2k_ult libcall) plus a G_SELECT at {s32,s1} (both
+# already legal); G_S/UCMP lowers to the same plus an extra G_SELECT/
+# G_CONSTANT pair; G_ABS lowers through G_ASHR (customFor -> __lc2k_ashr
+# libcall) plus G_ADD/G_XOR; and G_ABDS/G_ABDU take the select-based
+# expansion (G_SUB x2 + a relational G_ICMP + G_SELECT), since the
+# min/max-based alternative only triggers when G_SMIN et al. are legal, not
+# merely lowered. This just confirms each expansion legalizes cleanly.
+
+--- |
+  define void @smax() { ret void }
+  define void @smin() { ret void }
+  define void @umax() { ret void }
+  define void @umin() { ret void }
+  define void @scmp() { ret void }
+  define void @ucmp() { ret void }
+  define void @gabs() { ret void }
+  define void @abds() { ret void }
+  define void @abdu() { ret void }
+...
+---
+name:            smax
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: smax
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SMAX %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            smin
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: smin
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SMIN %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            umax
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: umax
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_UMAX %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            umin
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: umin
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_UMIN %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            scmp
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: scmp
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_SELECT
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_SCMP %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ucmp
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: ucmp
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_SELECT
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_UCMP %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            gabs
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: gabs
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_ashr
+    ; CHECK: G_ADD
+    ; CHECK: G_XOR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_ABS %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            abds
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: abds
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_ABDS %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            abdu
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: abdu
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_SELECT
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_ABDU %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

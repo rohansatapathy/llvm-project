@@ -22,5 +22,12 @@ LC2KTargetLowering::LC2KTargetLowering(const LC2KTargetMachine &TM,
     : TargetLowering(TM, STI) {
   addRegisterClass(MVT::i32, &LC2K::GPRRegClass);
 
+  // LC2K's stack pointer is always word-aligned (see
+  // LC2KFrameLowering::emitPrologue's StackSize % 4 assert), so every stack
+  // argument is naturally 4-byte aligned. This also keeps
+  // LegalizerHelper::lowerVAArg from emitting a G_PTRMASK for ordinary s32/
+  // p0 varargs, which LC2K has no legalizer rule for.
+  setMinStackArgumentAlignment(Align(4));
+
   computeRegisterProperties(STI.getRegisterInfo());
 }

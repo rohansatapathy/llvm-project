@@ -1,0 +1,270 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_S/UADDO, G_S/USUBO, G_S/UADDE, G_S/USUBE all have no LC2K-specific rule
+# and fall through to TargetLoweringBase's generic .lower() expansion: the
+# sum/difference itself becomes a plain G_ADD/G_SUB (already legal), and the
+# overflow/carry bit is computed via a relational G_ICMP, which LC2K's own
+# legalizeICmp then rewrites into a __lc2k_slt/__lc2k_ult libcall (see
+# overflow.mir's sibling icmp-relational.mir). No new LC2K logic is
+# exercised here -- this just confirms the generic expansion bottoms out in
+# ops LC2K's legalizer already knows how to finish legalizing, as described
+# in LC2KLegalizerInfo.cpp.
+
+--- |
+  define void @saddo() { ret void }
+  define void @ssubo() { ret void }
+  define void @uaddo() { ret void }
+  define void @usubo() { ret void }
+  define void @sadde() { ret void }
+  define void @ssube() { ret void }
+  define void @uadde() { ret void }
+  define void @usube() { ret void }
+...
+---
+name:            saddo
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: saddo
+    ; CHECK: legalized: true
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s1) = G_SADDO %0, %1
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            ssubo
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: ssubo
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s1) = G_SSUBO %0, %1
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            uaddo
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: uaddo
+    ; CHECK: legalized: true
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s1) = G_UADDO %0, %1
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            usubo
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: usubo
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s1) = G_USUBO %0, %1
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            sadde
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+  - { id: 4, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: sadde
+    ; CHECK: legalized: true
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %4:_(s1) = G_ICMP intpred(eq), %0(s32), %1
+    %2:_(s32), %3:_(s1) = G_SADDE %0, %1, %4
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            ssube
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+  - { id: 4, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: ssube
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_slt
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %4:_(s1) = G_ICMP intpred(eq), %0(s32), %1
+    %2:_(s32), %3:_(s1) = G_SSUBE %0, %1, %4
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            uadde
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+  - { id: 4, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: uadde
+    ; CHECK: legalized: true
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %4:_(s1) = G_ICMP intpred(eq), %0(s32), %1
+    %2:_(s32), %3:_(s1) = G_UADDE %0, %1, %4
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            usube
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+  - { id: 4, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: usube
+    ; CHECK: legalized: true
+    ; CHECK: G_SUB
+    ; CHECK: ADDR_ES &__lc2k_ult
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %4:_(s1) = G_ICMP intpred(eq), %0(s32), %1
+    %2:_(s32), %3:_(s1) = G_USUBE %0, %1, %4
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...

@@ -1,0 +1,276 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_BSWAP/G_BITREVERSE/G_CTLZ(_ZERO_UNDEF)/G_CTTZ(_ZERO_UNDEF)/G_CTPOP/
+# G_CTLS/G_ROTL/G_ROTR/G_FSHL/G_FSHR have no LC2K-specific rule and fall
+# through to .lower(), which -- per the TODO in LC2KLegalizerInfo.cpp --
+# expands each into a chain of G_SHL/G_LSHR/G_ASHR (each its own
+# __lc2k_shl/__lc2k_lshr/__lc2k_ashr libcall on LC2K, since there's no shift
+# hardware) plus G_AND/G_OR/G_ADD/G_SUB (already legal). This just confirms
+# each of those chains still legalizes cleanly end to end, since a long
+# lowering chain is exactly the kind of thing that's easy to leave partially
+# broken.
+
+--- |
+  define void @bswap() { ret void }
+  define void @bitreverse() { ret void }
+  define void @ctlz() { ret void }
+  define void @ctlz_zero_undef() { ret void }
+  define void @cttz() { ret void }
+  define void @cttz_zero_undef() { ret void }
+  define void @ctpop() { ret void }
+  define void @ctls() { ret void }
+  define void @rotl() { ret void }
+  define void @rotr() { ret void }
+  define void @fshl() { ret void }
+  define void @fshr() { ret void }
+...
+---
+name:            bswap
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: bswap
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_BSWAP %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            bitreverse
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: bitreverse
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_BITREVERSE %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ctlz
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: ctlz
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_CTLZ %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ctlz_zero_undef
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: ctlz_zero_undef
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_CTLZ_ZERO_UNDEF %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            cttz
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: cttz
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_CTTZ %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            cttz_zero_undef
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: cttz_zero_undef
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_CTTZ_ZERO_UNDEF %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ctpop
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: ctpop
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_CTPOP %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            ctls
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: ctls
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_CTLS %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            rotl
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: rotl
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    ; CHECK: G_OR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_ROTL %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            rotr
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: rotr
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: G_OR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_ROTR %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fshl
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2, $r3
+
+    ; CHECK-LABEL: name: fshl
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    ; CHECK: G_OR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = COPY $r3
+    %3:_(s32) = G_FSHL %0, %1, %2
+    $r1 = COPY %3(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fshr
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2, $r3
+
+    ; CHECK-LABEL: name: fshr
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: ADDR_ES &__lc2k_lshr
+    ; CHECK: G_OR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = COPY $r3
+    %3:_(s32) = G_FSHR %0, %1, %2
+    $r1 = COPY %3(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...

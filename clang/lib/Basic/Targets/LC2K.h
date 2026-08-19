@@ -16,6 +16,28 @@ class LLVM_LIBRARY_VISIBILITY LC2KTargetInfo : public TargetInfo {
 public:
   LC2KTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
+    // Pointers and native integers (word-sized)
+    PointerWidth = PointerAlign = 32;
+    IntWidth = IntAlign = 32;
+    LongWidth = LongAlign = 32;
+
+    // Sub-word types promote to full 32-bit words (word-addressable machine)
+    BoolWidth = BoolAlign = 32;
+    ShortWidth = ShortAlign = 32;
+
+    // 64-bit integer types (multi-word)
+    LongLongWidth = 64;
+    LongLongAlign = 32;
+
+    // Floating-point types
+    FloatWidth = FloatAlign = 32;
+    DoubleWidth = 64;
+    DoubleAlign = 32;
+    LongDoubleWidth = 64;
+    LongDoubleAlign = 32;
+
+    // Minimum global alignment is 1 word (32 bits)
+    MinGlobalAlign = 32;
 
     resetDataLayout();
   };

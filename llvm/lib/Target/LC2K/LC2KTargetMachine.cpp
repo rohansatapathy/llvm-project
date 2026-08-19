@@ -12,6 +12,7 @@
 
 #include "LC2KTargetMachine.h"
 #include "LC2K.h"
+#include "LC2KMachineFunctionInfo.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
@@ -88,6 +89,13 @@ public:
 
 TargetPassConfig *LC2KTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new LC2KPassConfig(*this, PM);
+}
+
+MachineFunctionInfo *LC2KTargetMachine::createMachineFunctionInfo(
+    BumpPtrAllocator &Allocator, const Function &F,
+    const TargetSubtargetInfo *STI) const {
+  return LC2KMachineFunctionInfo::create<LC2KMachineFunctionInfo>(Allocator, F,
+                                                                  STI);
 }
 
 bool LC2KPassConfig::addIRTranslator() {

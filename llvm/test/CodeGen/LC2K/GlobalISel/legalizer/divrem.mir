@@ -1,0 +1,60 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_SDIVREM/G_UDIVREM have no LC2K-specific rule and fall through to
+# .lower(): per LC2KLegalizerInfo.cpp they trivially split into
+# G_SDIV+G_SREM / G_UDIV+G_UREM, both already libcalls (see mul-div-rem.mir
+# for the individual G_SDIV/G_UDIV/G_SREM/G_UREM libcall tests). This
+# confirms the split itself legalizes into exactly those two libcalls.
+
+--- |
+  define void @sdivrem() { ret void }
+  define void @udivrem() { ret void }
+...
+---
+name:            sdivrem
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: sdivrem
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__divsi3
+    ; CHECK: ADDR_ES &__modsi3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s32) = G_SDIVREM %0, %1
+    $r1 = COPY %2(s32)
+    $r2 = COPY %3(s32)
+    $r0 = JALR killed $r15, implicit $r1, implicit $r2
+...
+---
+name:            udivrem
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: udivrem
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__udivsi3
+    ; CHECK: ADDR_ES &__umodsi3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s32) = G_UDIVREM %0, %1
+    $r1 = COPY %2(s32)
+    $r2 = COPY %3(s32)
+    $r0 = JALR killed $r15, implicit $r1, implicit $r2
+...

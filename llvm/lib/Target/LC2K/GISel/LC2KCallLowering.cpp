@@ -15,6 +15,7 @@
 #include "LC2KCallLowering.h"
 #include "LC2KISelLowering.h"
 #include "LC2KInstrInfo.h"
+#include "LC2KMachineFunctionInfo.h"
 #include "LC2KRegisterInfo.h"
 #include "LC2KSubtarget.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
@@ -262,6 +263,18 @@ bool LC2KCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
   if (!determineAndHandleAssignments(Handler, Assigner, SplitArgInfos,
                                      MIRBuilder, CC, F.isVarArg()))
     return false;
+
+  if (F.isVarArg()) {
+    // Every argument of a variadic function -- named or not -- is passed on
+    // the stack (see CC_LC2K's CCIfNotVarArg guard), so Assigner.StackSize
+    // at this point (after only the named arguments above have been
+    // assigned) is exactly the offset where the first vararg would land.
+    // Create a marker fixed-stack object there for G_VASTART to find later.
+    MachineFrameInfo &MFI = MF.getFrameInfo();
+    int FI = MFI.CreateFixedObject(4, Assigner.StackSize,
+                                   /*IsImmutable=*/true);
+    MF.getInfo<LC2KMachineFunctionInfo>()->setVarArgsFrameIndex(FI);
+  }
 
   return true;
 }

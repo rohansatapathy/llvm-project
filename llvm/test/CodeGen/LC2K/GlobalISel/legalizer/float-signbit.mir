@@ -1,0 +1,78 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_FNEG/G_FABS/G_FCOPYSIGN have no LC2K-specific rule and fall through to
+# .lower(): per LC2KLegalizerInfo.cpp these are pure sign-bit manipulation,
+# so their generic expansions are G_CONSTANT + G_XOR/G_AND/G_OR, all already
+# legal at s32 -- no libcall needed, unlike the real arithmetic ops in
+# float-arith.mir.
+
+--- |
+  define void @fneg() { ret void }
+  define void @fabs() { ret void }
+  define void @fcopysign() { ret void }
+...
+---
+name:            fneg
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: fneg
+    ; CHECK: legalized: true
+    ; CHECK: %2:_(s32) = G_CONSTANT i32 -2147483648
+    ; CHECK: %1:_(s32) = G_XOR %0, %2
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_FNEG %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fabs
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: fabs
+    ; CHECK: legalized: true
+    ; CHECK: %2:_(s32) = G_CONSTANT i32 2147483647
+    ; CHECK: %1:_(s32) = G_AND %0, %2
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_FABS %0
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fcopysign
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: fcopysign
+    ; CHECK: legalized: true
+    ; CHECK: G_CONSTANT i32 -2147483648
+    ; CHECK: G_CONSTANT i32 2147483647
+    ; CHECK: G_AND
+    ; CHECK: G_AND
+    ; CHECK: G_OR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_FCOPYSIGN %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
