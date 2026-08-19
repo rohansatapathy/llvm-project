@@ -32,6 +32,10 @@ private:
                      LostDebugLocObserver &LocObserver) const;
   bool legalizeICmp(LegalizerHelper &Helper, MachineInstr &MI,
                     LostDebugLocObserver &LocObserver) const;
+  bool legalizeVAStart(LegalizerHelper &Helper, MachineInstr &MI) const;
+  bool legalizeExt(LegalizerHelper &Helper, MachineInstr &MI) const;
+  bool legalizeTrunc(LegalizerHelper &Helper, MachineInstr &MI) const;
+  bool legalizeFConstant(LegalizerHelper &Helper, MachineInstr &MI) const;
 };
 
 } // namespace llvm

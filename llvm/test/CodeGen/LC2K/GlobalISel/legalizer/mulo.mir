@@ -1,0 +1,78 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# G_SMULO/G_UMULO are marked .lower() in LC2KLegalizerInfo.cpp. Their generic
+# expansion prefers widening to a 2x-wide multiply (compute the product at
+# s64, then compare against the sign/zero extension of the s32 truncation)
+# over one built from G_SMULH/G_UMULH, and that widening path is now fully
+# legalizable: G_MUL and G_ASHR are both legal/custom at s64 (see
+# LC2KLegalizerInfo.cpp), so the s64 multiply becomes a __muldi3 call and the
+# sign extensions become __lc2k_ashr calls. G_SMULH/G_UMULH themselves are
+# still deliberately .unsupported() (a 64-bit-result mulh has no cheap
+# lowering on LC2K), but they're never reached here.
+
+--- |
+  define void @smulo() { ret void }
+  define void @umulo() { ret void }
+...
+---
+name:            smulo
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: smulo
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__lc2k_ashr
+    ; CHECK: ADDR_ES &__muldi3
+    ; CHECK: ADDR_ES &__lc2k_ashr
+    ; CHECK: G_ICMP intpred(ne)
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s1) = G_SMULO %0, %1
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            umulo
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+  - { id: 3, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: umulo
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__muldi3
+    ; CHECK: G_ICMP intpred(ne)
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32), %3:_(s1) = G_UMULO %0, %1
+    $r1 = COPY %2(s32)
+    G_BRCOND %3(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
