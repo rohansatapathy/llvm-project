@@ -111,7 +111,7 @@ void LC2KExpandPseudos::expandSelect(MachineInstr &MI,
       .addReg(Cond)
       .addReg(LC2K::R0)
       .addMBB(FalseMBB);
-  BuildMI(MBB, MBB.end(), DL, TII.get(LC2K::BEQ))
+  BuildMI(MBB, MBB.end(), DL, TII.get(LC2K::BEQ_UNCOND))
       .addReg(LC2K::R0)
       .addReg(LC2K::R0)
       .addMBB(MergeMBB);
@@ -140,11 +140,13 @@ void LC2KExpandPseudos::expandCmp01(MachineInstr &MI,
   bool IsEq = MI.getOperand(3).getImm() != 0;
 
   // LC2K has no compare-into-register instruction, so materialize a real
-  // 0/1 value via a compare-and-branch + PHI merge. Deliberately not fused
-  // with whatever consumes it (a real G_BRCOND/G_SELECT lowering already
-  // works correctly against any already-0/1 register regardless of what
-  // produced it) -- fusing away this extra branch is a possible future
-  // optimization, not required for correctness.
+  // 0/1 value via a compare-and-branch + PHI merge. A same-block, single-use
+  // G_ICMP feeding directly into a G_BRCOND is fused into a single compare
+  // by LC2KInstructionSelector::selectBrCond instead, bypassing this pseudo
+  // entirely -- this expansion only runs for the remaining cases where the
+  // 0/1 result is genuinely needed as a value (e.g. stored to memory, used
+  // more than once, or consumed by something other than an immediately
+  // following branch).
   MachineBasicBlock *MergeMBB = MBB.splitAt(MI, /*UpdateLiveIns=*/false);
   MachineBasicBlock *TakenMBB =
       MF.CreateMachineBasicBlock(MBB.getBasicBlock());
@@ -168,7 +170,7 @@ void LC2KExpandPseudos::expandCmp01(MachineInstr &MI,
       .addReg(LHS)
       .addReg(RHS)
       .addMBB(TakenMBB);
-  BuildMI(MBB, MBB.end(), DL, TII.get(LC2K::BEQ))
+  BuildMI(MBB, MBB.end(), DL, TII.get(LC2K::BEQ_UNCOND))
       .addReg(LC2K::R0)
       .addReg(LC2K::R0)
       .addMBB(MergeMBB);
