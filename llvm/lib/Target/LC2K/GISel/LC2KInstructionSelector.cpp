@@ -68,6 +68,7 @@ private:
 
   bool selectGeneric(MachineInstr &I) const;
   bool selectConstant(MachineInstr &I) const;
+  bool selectFConstant(MachineInstr &I) const;
   bool selectAdd(MachineInstr &I) const;
   bool selectSub(MachineInstr &I) const;
   bool selectAnd(MachineInstr &I) const;
@@ -82,6 +83,9 @@ private:
   bool selectBr(MachineInstr &I) const;
   bool selectSelect(MachineInstr &I) const;
   bool selectTrunc(MachineInstr &I) const;
+  bool selectZExtAnyExt(MachineInstr &I) const;
+  bool selectSExt(MachineInstr &I) const;
+  bool selectPtrIntCast(MachineInstr &I) const;
   bool selectCall(MachineInstr &I) const;
   bool selectAddrEs(MachineInstr &I) const;
 
@@ -172,6 +176,8 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectGeneric(I);
   case TargetOpcode::G_CONSTANT:
     return selectConstant(I);
+  case TargetOpcode::G_FCONSTANT:
+    return selectFConstant(I);
   case TargetOpcode::G_ADD:
     return selectAdd(I);
   case TargetOpcode::G_SUB:
@@ -201,6 +207,14 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectSelect(I);
   case TargetOpcode::G_TRUNC:
     return selectTrunc(I);
+  case TargetOpcode::G_ZEXT:
+  case TargetOpcode::G_ANYEXT:
+    return selectZExtAnyExt(I);
+  case TargetOpcode::G_SEXT:
+    return selectSExt(I);
+  case TargetOpcode::G_PTRTOINT:
+  case TargetOpcode::G_INTTOPTR:
+    return selectPtrIntCast(I);
   default:
     return false;
   }
@@ -282,6 +296,20 @@ bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
   Register Dst = I.getOperand(0).getReg();
   int64_t Val = I.getOperand(1).getCImm()->getSExtValue();
   materializeConstant(Dst, Val, I);
+  I.eraseFromParent();
+  return true;
+}
+
+bool LC2KInstructionSelector::selectFConstant(MachineInstr &I) const {
+  // A float constant is just its IEEE-754 bit pattern materialized the same
+  // memory-free way as an integer constant -- LC2K has no constant-pool
+  // support (see the G_FCONSTANT legalizer rule), and doesn't need any,
+  // since the same materializeConstant sequence works regardless of how
+  // the bits are meant to be interpreted downstream.
+  Register Dst = I.getOperand(0).getReg();
+  const APInt Bits =
+      I.getOperand(1).getFPImm()->getValueAPF().bitcastToAPInt();
+  materializeConstant(Dst, Bits.getZExtValue(), I);
   I.eraseFromParent();
   return true;
 }
@@ -623,6 +651,64 @@ bool LC2KInstructionSelector::selectTrunc(MachineInstr &I) const {
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(),
                     TII.get(TargetOpcode::COPY), Dst)
                 .addReg(Src));
+  I.eraseFromParent();
+  return true;
+}
+
+bool LC2KInstructionSelector::selectZExtAnyExt(MachineInstr &I) const {
+  // s1 values are always materialized as canonical 0/1 in a full word (see
+  // selectICmp), so both a zero-extension and an "any" extension of one are
+  // already correct as-is: a no-op copy.
+  //
+  // COPY has no fixed register class in its MCInstrDesc, so constrain()
+  // (constrainSelectedInstRegOperands) is a no-op on both of its operands --
+  // Src gets a class from its own defining instruction, but Dst does not
+  // unless something explicitly assigns one, exactly like the top-level
+  // COPY case in selectGeneric above.
+  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
+  Register Dst = I.getOperand(0).getReg();
+  Register Src = I.getOperand(1).getReg();
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(TargetOpcode::COPY),
+         Dst)
+      .addReg(Src);
+  I.eraseFromParent();
+  return RBI.constrainGenericRegister(Dst, LC2K::GPRRegClass, MRI) != nullptr;
+}
+
+bool LC2KInstructionSelector::selectPtrIntCast(MachineInstr &I) const {
+  // Pointers and s32 integers are both 32-bit values in the same (only)
+  // register bank/class on LC2K (a flat, word-addressed address space with
+  // no pointer tagging), so a G_PTRTOINT/G_INTTOPTR is a pure
+  // reinterpretation of the same bits: a no-op copy, exactly like
+  // selectZExtAnyExt/selectTrunc above.
+  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
+  Register Dst = I.getOperand(0).getReg();
+  Register Src = I.getOperand(1).getReg();
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(TargetOpcode::COPY),
+         Dst)
+      .addReg(Src);
+  I.eraseFromParent();
+  return RBI.constrainGenericRegister(Dst, LC2K::GPRRegClass, MRI) != nullptr;
+}
+
+bool LC2KInstructionSelector::selectSExt(MachineInstr &I) const {
+  // s1 values are canonical 0/1 (see selectICmp). Sign-extending a 1-bit
+  // value replicates its single (sign) bit, so true (1) must become -1
+  // (0xFFFFFFFF), not 1 -- i.e. this is two's-complement negation:
+  // -0 == 0, -1 == 0xFFFFFFFF. Same NOT-then-increment idiom as selectSub.
+  MachineBasicBlock &MBB = *I.getParent();
+  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
+  DebugLoc DL = I.getDebugLoc();
+  Register Dst = I.getOperand(0).getReg();
+  Register Src = I.getOperand(1).getReg();
+
+  Register NotSrc = MRI.createVirtualRegister(&LC2K::GPRRegClass);
+  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), NotSrc)
+                .addReg(Src)
+                .addReg(Src));
+  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::ADDI), Dst)
+                .addReg(NotSrc)
+                .addImm(1));
   I.eraseFromParent();
   return true;
 }

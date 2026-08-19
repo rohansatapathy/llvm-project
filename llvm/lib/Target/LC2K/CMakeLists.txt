@@ -23,6 +23,7 @@ add_llvm_target(LC2KCodeGen
   GISel/LC2KRegisterBankInfo.cpp
   LC2KTargetMachine.cpp
   LC2KAsmPrinter.cpp
+  LC2KMachineFunctionInfo.cpp
   LC2KRegisterInfo.cpp
   LC2KSubtarget.cpp
   LC2KFrameLowering.cpp

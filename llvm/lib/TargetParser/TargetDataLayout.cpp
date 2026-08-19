@@ -559,15 +559,16 @@ static std::string computeLC2KDataLayout() {
   // Use ELF mangling.
   Ret += "-m:e";
 
-  // LC2K is 4-byte word-addressable, so all integer types should be minimum
+  // LC2K is 4-byte word-addressable, so all integer types and floating point
+  // types should be minimum 32-bit aligned.
+  // TODO: Once CharWidth/CharAlign are set to 32 bits, change i8 to be
   // 32-bit aligned.
-  // NOTE: ABI alignment is not set to 32 to satisfy clang's requirement
-  // that i8s be 8-bit aligned and i16s be 16-bit aligned.
   Ret += "-i8:8:32";
-  Ret += "-i16:16:32";
-
-  // 64-bit integers should be 64-bit aligned.
-  Ret += "-i64:64:64";
+  Ret += "-i16:32:32";
+  Ret += "-i32:32:32";
+  Ret += "-i64:32:32";
+  Ret += "-f32:32:32";
+  Ret += "-f64:32:32";
 
   // Pointers are word-sized.
   Ret += "-p:32:32:32";

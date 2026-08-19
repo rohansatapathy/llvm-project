@@ -1,0 +1,249 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# LC2K has softfloat support for arithmetic/comparison/conversion (see the
+# float32 section of LC2KLegalizerInfo.cpp): G_FADD/G_FSUB/G_FMUL/G_FDIV/
+# G_FREM and the FP<->int conversions route to the standard compiler-rt/
+# libgcc soft-float symbols via libcallFor, G_FCMP likewise (its EQ
+# predicate here maps to __eqsf2 plus an == 0 G_ICMP), and G_FCONSTANT is
+# left legal since a float's bit pattern is materialized the same
+# memory-free way as G_CONSTANT (see selectFConstant in
+# LC2KInstructionSelector.cpp).
+
+--- |
+  define void @fadd() { ret void }
+  define void @fsub() { ret void }
+  define void @fmul() { ret void }
+  define void @fdiv() { ret void }
+  define void @frem() { ret void }
+  define void @fcmp() { ret void }
+  define void @fptosi() { ret void }
+  define void @fptoui() { ret void }
+  define void @sitofp() { ret void }
+  define void @uitofp() { ret void }
+  define void @fconstant() { ret void }
+...
+---
+name:            fadd
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: fadd
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__addsf3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_FADD %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fsub
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: fsub
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__subsf3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_FSUB %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fmul
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: fmul
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__mulsf3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_FMUL %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fdiv
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: fdiv
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__divsf3
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_FDIV %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            frem
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: frem
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &fmodf
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = G_FREM %0, %1
+    $r1 = COPY %2(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fcmp
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+  - { id: 2, class: _ }
+body:             |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $r1, $r2
+
+    ; CHECK-LABEL: name: fcmp
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__eqsf2
+    ; CHECK: G_ICMP
+    ; CHECK: G_BRCOND
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s1) = G_FCMP floatpred(oeq), %0(s32), %1
+    G_BRCOND %2(s1), %bb.1
+    G_BR %bb.2
+  bb.1:
+    $r0 = JALR killed $r15
+  bb.2:
+    $r0 = JALR killed $r15
+...
+---
+name:            fptosi
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: fptosi
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__fixsfsi
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_FPTOSI %0(s32)
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fptoui
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: fptoui
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__fixunssfsi
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_FPTOUI %0(s32)
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            sitofp
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: sitofp
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__floatsisf
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_SITOFP %0(s32)
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            uitofp
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+  - { id: 1, class: _ }
+body:             |
+  bb.0:
+    liveins: $r1
+
+    ; CHECK-LABEL: name: uitofp
+    ; CHECK: legalized: true
+    ; CHECK: ADDR_ES &__floatunsisf
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = G_UITOFP %0(s32)
+    $r1 = COPY %1(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fconstant
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+body:             |
+  bb.0:
+
+    ; CHECK-LABEL: name: fconstant
+    ; CHECK: legalized: true
+    ; CHECK: %0:_(s32) = G_FCONSTANT float 1.000000e+00
+    %0:_(s32) = G_FCONSTANT float 1.0
+    $r1 = COPY %0(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
