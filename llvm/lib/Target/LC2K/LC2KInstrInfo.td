@@ -50,6 +50,11 @@ let isBranch = true, isTerminator = true in {
 def BEQ   : LC2KInstITypeReadOnly<OPC_BEQ>;
 }  // isBranch = true, isTerminator = true
 
+// This is equivalent to "beq 0 0 <target>"; need version with isBarrier set
+// for branch analysis.
+let isBranch = true, isTerminator = true, isBarrier = true, isCodeGenOnly = 1 in
+def BEQ_UNCOND : LC2KInstITypeReadOnly<OPC_BEQ>;
+
 // JALR is only built directly for a a return (CALL is a separate pseudo).
 let isIndirectBranch = true, isTerminator = true, isReturn = true in {
 def JALR  : LC2KInstJType<OPC_JALR>;
