@@ -60,7 +60,7 @@ static MCInstPrinter *createLC2KMCInstPrinter(const Triple &T,
 static MCAsmInfo *createLC2KMCAsmInfo(const MCRegisterInfo &MRI,
                                       const Triple &TT,
                                       const MCTargetOptions &Options) {
-  return new LC2KELFMCAsmInfo(TT);
+  return new LC2KELFMCAsmInfo(TT, Options);
 }
 
 static MCSubtargetInfo *createLC2KMCSubtargetInfo(const Triple &TT,

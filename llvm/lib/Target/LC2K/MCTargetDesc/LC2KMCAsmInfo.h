@@ -22,7 +22,8 @@ class LC2KELFMCAsmInfo : public MCAsmInfoELF {
   void anchor() override;
 
 public:
-  explicit LC2KELFMCAsmInfo(const Triple &Triple);
+  explicit LC2KELFMCAsmInfo(const Triple &Triple,
+                            const MCTargetOptions &Options);
 };
 
 } // namespace llvm

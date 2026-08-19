@@ -209,9 +209,10 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   // idiom recognition at -O1+), revisit with dedicated single-libcall
   // runtime routines instead, the same way shifts and relational compares
   // are handled.
-  getActionDefinitionsBuilder({G_BITREVERSE, G_BSWAP, G_CTLZ, G_CTLZ_ZERO_UNDEF,
-                               G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTPOP, G_CTLS,
-                               G_ROTL, G_ROTR, G_FSHL, G_FSHR})
+  getActionDefinitionsBuilder({G_BITREVERSE, G_BSWAP, G_CTLZ,
+                               G_CTLZ_ZERO_POISON, G_CTTZ,
+                               G_CTTZ_ZERO_POISON, G_CTPOP, G_CTLS, G_ROTL,
+                               G_ROTR, G_FSHL, G_FSHR})
       .lower();
 
   // Trivially splits into G_SDIV+G_SREM / G_UDIV+G_UREM, both already
