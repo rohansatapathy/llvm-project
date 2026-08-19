@@ -19,7 +19,9 @@ using namespace llvm;
 
 void LC2KELFMCAsmInfo::anchor() {}
 
-LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T) {
+LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T,
+                                   const MCTargetOptions &Options)
+    : MCAsmInfoELF(Options) {
   CodePointerSize = 4;
   IsLittleEndian = true;
 
@@ -51,8 +53,8 @@ LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T) {
   // via StringRef::starts_with(PrivateGlobalPrefix), and an empty prefix
   // matches every symbol name, silently marking permanent symbols (like
   // libcall references) as temporary too.
-  PrivateGlobalPrefix = "L";
-  PrivateLabelPrefix = PrivateGlobalPrefix;
+  // LinkerPrivateGlobalPrefix = "L";
+  // PrivateLabelPrefix = PrivateGlobalPrefix;
 
   LabelSuffix = "";
 }

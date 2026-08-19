@@ -89,7 +89,8 @@ struct LC2KOutgoingArgHandler : public CallLowering::OutgoingValueHandler {
   }
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
-                        const CCValAssign &VA) override {
+                        const CCValAssign &VA,
+                        ISD::ArgFlagsTy Flags) override {
     Register ExtReg = extendRegister(ValVReg, VA);
     MIRBuilder.buildCopy(PhysReg, ExtReg);
     // NOTE: Call args are implicit b/c args are not encoded within actual
@@ -141,9 +142,10 @@ struct LC2KIncomingArgHandler : public CallLowering::IncomingValueHandler {
   }
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
-                        const CCValAssign &VA) override {
+                        const CCValAssign &VA,
+                        ISD::ArgFlagsTy Flags) override {
     markRegUsed(PhysReg);
-    IncomingValueHandler::assignValueToReg(ValVReg, PhysReg, VA);
+    IncomingValueHandler::assignValueToReg(ValVReg, PhysReg, VA, Flags);
   }
 
   /// How the physical register gets marked varies between formal

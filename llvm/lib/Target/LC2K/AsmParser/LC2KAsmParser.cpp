@@ -64,8 +64,8 @@ class LC2KAsmParser : public MCTargetAsmParser {
 
 public:
   LC2KAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
-                const MCInstrInfo &MII, const MCTargetOptions &Options)
-      : MCTargetAsmParser(Options, STI, MII), Parser(Parser),
+                const MCInstrInfo &MII)
+      : MCTargetAsmParser(STI, MII), Parser(Parser),
         Lexer(Parser.getLexer()) {}
 
 private:
@@ -532,7 +532,7 @@ ParseStatus LC2KAsmParser::parseDirective(AsmToken DirectiveID) {
   }
 
   if (IDVal ==
-      StringRef(getContext().getAsmInfo()->getGlobalDirective()).trim()) {
+      StringRef(getContext().getAsmInfo().getGlobalDirective()).trim()) {
     AsmToken LabelToken = Lexer.getTok();
     SMLoc LabelLoc = LabelToken.getLoc();
 

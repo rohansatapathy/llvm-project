@@ -1,6 +1,6 @@
 # RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
 
-# G_BSWAP/G_BITREVERSE/G_CTLZ(_ZERO_UNDEF)/G_CTTZ(_ZERO_UNDEF)/G_CTPOP/
+# G_BSWAP/G_BITREVERSE/G_CTLZ/G_CTTZ/G_CTPOP/
 # G_CTLS/G_ROTL/G_ROTR/G_FSHL/G_FSHR have no LC2K-specific rule and fall
 # through to .lower(), which -- per the TODO in LC2KLegalizerInfo.cpp --
 # expands each into a chain of G_SHL/G_LSHR/G_ASHR (each its own
@@ -14,9 +14,9 @@
   define void @bswap() { ret void }
   define void @bitreverse() { ret void }
   define void @ctlz() { ret void }
-  define void @ctlz_zero_undef() { ret void }
+  define void @ctlz_zero_poison() { ret void }
   define void @cttz() { ret void }
-  define void @cttz_zero_undef() { ret void }
+  define void @cttz_zero_poison() { ret void }
   define void @ctpop() { ret void }
   define void @ctls() { ret void }
   define void @rotl() { ret void }
@@ -84,7 +84,7 @@ body:             |
     $r0 = JALR killed $r15, implicit $r1
 ...
 ---
-name:            ctlz_zero_undef
+name:            ctlz_zero_poison
 legalized:       false
 tracksRegLiveness: true
 registers:
@@ -94,11 +94,11 @@ body:             |
   bb.0:
     liveins: $r1
 
-    ; CHECK-LABEL: name: ctlz_zero_undef
+    ; CHECK-LABEL: name: ctlz_zero_poison
     ; CHECK: legalized: true
     ; CHECK: ADDR_ES &__lc2k_lshr
     %0:_(s32) = COPY $r1
-    %1:_(s32) = G_CTLZ_ZERO_UNDEF %0
+    %1:_(s32) = G_CTLZ_ZERO_POISON %0
     $r1 = COPY %1(s32)
     $r0 = JALR killed $r15, implicit $r1
 ...
@@ -122,7 +122,7 @@ body:             |
     $r0 = JALR killed $r15, implicit $r1
 ...
 ---
-name:            cttz_zero_undef
+name:            cttz_zero_poison
 legalized:       false
 tracksRegLiveness: true
 registers:
@@ -132,11 +132,11 @@ body:             |
   bb.0:
     liveins: $r1
 
-    ; CHECK-LABEL: name: cttz_zero_undef
+    ; CHECK-LABEL: name: cttz_zero_poison
     ; CHECK: legalized: true
     ; CHECK: ADDR_ES &__lc2k_lshr
     %0:_(s32) = COPY $r1
-    %1:_(s32) = G_CTTZ_ZERO_UNDEF %0
+    %1:_(s32) = G_CTTZ_ZERO_POISON %0
     $r1 = COPY %1(s32)
     $r0 = JALR killed $r15, implicit $r1
 ...
