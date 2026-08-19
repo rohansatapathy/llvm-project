@@ -578,6 +578,7 @@ bool LC2KInstructionSelector::selectICmp(MachineInstr &I) const {
 
 bool LC2KInstructionSelector::selectBrCond(MachineInstr &I) const {
   MachineBasicBlock &MBB = *I.getParent();
+  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
   MachineInstr &Next = *std::next(MachineBasicBlock::iterator(I));
 
   Register Cond = I.getOperand(0).getReg();
@@ -586,22 +587,53 @@ bool LC2KInstructionSelector::selectBrCond(MachineInstr &I) const {
   // InstructionSelect visits a block's instructions in reverse order, so
   // the terminator immediately after this G_BRCOND (always present -- see
   // IRTranslator's fixed shape for conditional branches) may already have
-  // been independently selected into `BEQ R0,R0,%bb.false` by selectBr, or
-  // may still be the original generic G_BR %bb.false. Handle both: the
-  // false-target operand sits at index 0 for G_BR, index 2 for a
-  // self-compare BEQ.
+  // been independently selected into `BEQ_UNCOND R0,R0,%bb.false` by
+  // selectBr, or may still be the original generic G_BR %bb.false. Handle
+  // both: the false-target operand sits at index 0 for G_BR, index 2 for a
+  // BEQ_UNCOND.
   unsigned FalseMBBOpIdx;
   if (Next.getOpcode() == TargetOpcode::G_BR) {
     FalseMBBOpIdx = 0;
   } else {
-    assert(Next.getOpcode() == LC2K::BEQ &&
-           Next.getOperand(0).getReg() == LC2K::R0 &&
-           Next.getOperand(1).getReg() == LC2K::R0 &&
+    assert(Next.getOpcode() == LC2K::BEQ_UNCOND &&
            "expected G_BRCOND's sibling terminator to be an unconditional "
            "branch");
     FalseMBBOpIdx = 2;
   }
   MachineBasicBlock *FalseMBB = Next.getOperand(FalseMBBOpIdx).getMBB();
+
+  // If Cond is produced by a same-block, single-use G_ICMP (always eq/ne --
+  // legalizeICmp routes every relational predicate to a libcall before isel
+  // ever runs, see LC2KLegalizerInfo::legalizeICmp), fuse the compare
+  // directly into this branch instead of first materializing it into a real
+  // 0/1 register via PSEUDO_CMP01 (a whole extra compare-and-branch-and-PHI
+  // sequence) and then branching on *that*. This collapses what would
+  // otherwise be two independent compare-and-branch sequences (up to 4
+  // BEQs) into a single one (1-2 BEQs).
+  MachineInstr *CmpMI = MRI.getVRegDef(Cond);
+  if (CmpMI->getOpcode() == TargetOpcode::G_ICMP &&
+      CmpMI->getParent() == &MBB && MRI.hasOneUse(Cond)) {
+    auto &Cmp = cast<GICmp>(*CmpMI);
+    assert((Cmp.getCond() == CmpInst::ICMP_EQ ||
+            Cmp.getCond() == CmpInst::ICMP_NE) &&
+           "relational icmp predicates should have been legalized to "
+           "libcalls");
+    bool IsEq = Cmp.getCond() == CmpInst::ICMP_EQ;
+    // When equal, take the branch target of whichever side the comparison
+    // is actually equivalent to (the BRCOND's own true target for `eq`, the
+    // sibling unconditional branch's target for `ne`); redirect that
+    // sibling branch to the true target when it isn't already going there.
+    MachineBasicBlock *EqMBB = IsEq ? TrueMBB : FalseMBB;
+    if (!IsEq)
+      Next.getOperand(FalseMBBOpIdx).setMBB(TrueMBB);
+    constrain(BuildMI(MBB, I, I.getDebugLoc(), TII.get(LC2K::BEQ))
+                  .addReg(Cmp.getLHSReg())
+                  .addReg(Cmp.getRHSReg())
+                  .addMBB(EqMBB));
+    CmpMI->eraseFromParent();
+    I.eraseFromParent();
+    return true;
+  }
 
   // LC2K only has "branch if equal": branch to the false target when the
   // (always exactly 0/1) condition is 0, and redirect the existing
@@ -619,8 +651,10 @@ bool LC2KInstructionSelector::selectBrCond(MachineInstr &I) const {
 
 bool LC2KInstructionSelector::selectBr(MachineInstr &I) const {
   MachineBasicBlock *Target = I.getOperand(0).getMBB();
-  // LC2K has no dedicated unconditional jump; BEQ R0,R0 is always taken.
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::BEQ))
+  // LC2K has no dedicated unconditional jump; BEQ_UNCOND R0,R0 (encoded
+  // identically to a real BEQ, see LC2KInstrInfo.td) is always taken.
+  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(),
+                    TII.get(LC2K::BEQ_UNCOND))
                 .addReg(LC2K::R0)
                 .addReg(LC2K::R0)
                 .addMBB(Target));
