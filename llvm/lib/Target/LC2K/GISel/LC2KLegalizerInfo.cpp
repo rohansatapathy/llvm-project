@@ -16,8 +16,10 @@
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "lc2k-legalizer-info"
 
@@ -42,8 +44,23 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   // s32 is deliberately left with no rule below, so legalization fails
   // loudly if it's ever produced instead of being silently miscompiled.
 
+  // p0 is included alongside s32 (like G_IMPLICIT_DEF below): a
+  // null-pointer literal (`ptr == 0`, `ptr == NULL`, a default-initialized
+  // pointer, ...) is translated directly to `G_CONSTANT p0, 0` by
+  // IRTranslator's ConstantPointerNull handling, never routed through
+  // G_INTTOPTR. selectConstant already handles this correctly as-is: it
+  // never inspects Dst's LLT, just materializes the bit pattern into
+  // whatever GPR Dst gets constrained to.
+  // Values that fit a single ADDI immediate stay legal (see
+  // materializeConstant); wider s32 values are split by legalizeConstant
+  // below into a 12-bit high half shifted into position via the __lc2k_shl
+  // libcall (see legalizeShift) plus a 20-bit low half, since LC2K has no
+  // shift hardware to build them bit-serially inline. p0 is left alone: a
+  // null-pointer literal is always G_CONSTANT p0, 0 (see the comment
+  // above), so it never needs the wide-value path.
   getActionDefinitionsBuilder(G_CONSTANT)
-      .legalFor({s32})
+      .legalFor({p0})
+      .customFor({s32})
       .clampScalar(0, s32, s32);
 
   getActionDefinitionsBuilder(G_IMPLICIT_DEF)
@@ -51,6 +68,27 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
       .clampScalar(0, s32, s32);
 
   getActionDefinitionsBuilder(G_BR).alwaysLegal();
+
+  // The indirect branch a jump-table dispatch bottoms out into (see
+  // legalizeBRJT below): the target address is just a plain word address in
+  // a GPR, exactly like a computed pointer value anywhere else.
+  getActionDefinitionsBuilder(G_BRINDIRECT).legalFor({p0});
+
+  // G_JUMP_TABLE materializes the base address of a jump table, exactly like
+  // G_GLOBAL_VALUE materializes a global's address (see selectGlobalValue /
+  // the analogous selectJumpTable) -- both are plain word addresses.
+  getActionDefinitionsBuilder(G_JUMP_TABLE).legalFor({p0});
+
+  // G_BRJT combines an address computation, a load, and an indirect branch
+  // into one generic op; LC2K has no single instruction that does all of
+  // that, so it's expanded by legalizeBRJT into the already-legal G_PTR_ADD
+  // + G_LOAD + G_BRINDIRECT sequence below instead. Unlike byte-addressed
+  // targets, no shift-by-log2(entry size) is needed first: LC2K is
+  // word-addressed (see the file header comment in
+  // LC2KInstructionSelector.cpp) and every jump table entry is exactly one
+  // word (a target block's address), so the case index the switch computes
+  // is already the correct word offset into the table.
+  getActionDefinitionsBuilder(G_BRJT).customFor({{p0, s32}});
 
   getActionDefinitionsBuilder(G_PHI).legalFor({s32, p0}).clampScalar(0, s32,
                                                                      s32);
@@ -120,8 +158,15 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   // into calls to just two runtime primitives -- signed and unsigned
   // less-than -- with the other 6 predicates derived via operand-swapping
   // and result negation.
+  //
+  // p0 is included alongside s32 (like G_SELECT below) since pointers and
+  // s32 integers are bit-identical values in the same register class on
+  // LC2K (see the G_PTRTOINT/G_INTTOPTR comment above) -- null checks and
+  // pointer-equality comparisons (`ptr == 0`, `p1 != p2`) hit this same
+  // {s1, p0} instance and legalizeICmp's EQ/NE path already handles it
+  // correctly as-is, since it never inspects the compared operands' LLT.
   getActionDefinitionsBuilder(G_ICMP)
-      .customFor({{s1, s32}})
+      .customFor({{s1, s32}, {s1, p0}})
       .clampScalar(1, s32, s32);
 
   // G_BRCOND and G_SELECT are also cheap to synthesize from BEQ (materialize
@@ -229,10 +274,20 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   getActionDefinitionsBuilder({G_ATOMIC_CMPXCHG_WITH_SUCCESS, G_ATOMICRMW_SUB})
       .unsupported();
 
-  // TODO: implement once rebased onto non-8-bit-byte IR support -- LC2K's
-  // byte is a full 32-bit word, so these can't be legalized correctly yet.
-  getActionDefinitionsBuilder({G_MEMCPY, G_MEMMOVE, G_MEMSET, G_MEMCPY_INLINE})
-      .unsupported();
+  // Emitted as calls to the target's memcpy/memmove/memset instead of
+  // expanded inline: LC2K's byte is a full 32-bit word (see the DataLayout),
+  // so an inline loads/stores expansion would need to speak in words rather
+  // than the byte-granular lengths/offsets LegalizerHelper's lower() assumes.
+  getActionDefinitionsBuilder({G_MEMCPY, G_MEMMOVE, G_MEMSET}).libcall();
+
+  // G_MEMCPY_INLINE forbids ever being lowered as a call (that's the entire
+  // point of __builtin_memcpy_inline), so the libcall action above isn't an
+  // option for it, and it always reaches here with a compile-time-constant
+  // length (PreISelIntrinsicLowering expands any non-constant-length
+  // instance into a real IR loop before this legalizer ever runs). Without
+  // an inline loads/stores expansion (same word-vs-byte gap as above), it
+  // stays illegal.
+  getActionDefinitionsBuilder(G_MEMCPY_INLINE).unsupported();
 
   // LC2K has no frame pointer (see LC2KFrameLowering::hasFPImpl): every
   // local/spill/outgoing-arg slot is addressed as a compile-time-constant
@@ -345,6 +400,10 @@ bool LC2KLegalizerInfo::legalizeCustom(
     return legalizeTrunc(Helper, MI);
   case TargetOpcode::G_FCONSTANT:
     return legalizeFConstant(Helper, MI);
+  case TargetOpcode::G_BRJT:
+    return legalizeBRJT(Helper, MI);
+  case TargetOpcode::G_CONSTANT:
+    return legalizeConstant(Helper, MI, LocObserver);
   default:
     return false;
   }
@@ -393,6 +452,59 @@ bool LC2KLegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
   if (Helper.createLibcall(Name, Result, Args, CallingConv::C, LocObserver,
                            &MI) != LegalizerHelper::Legalized)
     return false;
+
+  MI.eraseFromParent();
+  return true;
+}
+
+bool LC2KLegalizerInfo::legalizeConstant(
+    LegalizerHelper &Helper, MachineInstr &MI,
+    LostDebugLocObserver &LocObserver) const {
+  int64_t Val = MI.getOperand(1).getCImm()->getSExtValue();
+
+  // Already a single ADDI in the selector (see materializeConstant) --
+  // nothing to do.
+  if (isInt<20>(Val))
+    return true;
+
+  // No shift hardware exists, so split the 32-bit pattern the same way
+  // RISC-V's lui/addi pair does: a signed 20-bit Lo half that always fits a
+  // single ADDI immediate on its own, and a 12-bit Hi half rounded to
+  // compensate for Lo's sign so that (Hi << 20) + Lo reconstructs Val
+  // exactly.
+  //
+  // Hi is shifted into position by calling the __lc2k_shl runtime routine
+  // directly (the same one legalizeShift above routes G_SHL to), rather
+  // than building a G_SHL generic op and relying on it to re-legalize:
+  // Hi and the shift amount are both compile-time-known constants, and the
+  // legalizer's CSEMIRBuilder constant-folds a G_SHL of two constants
+  // straight back into the original wide literal (see ConstantFoldBinOp in
+  // CSEMIRBuilder.cpp) instead of leaving a real G_SHL to legalize -- an
+  // infinite loop, not a real fixed point. Calling createLibcall directly
+  // sidesteps that: its result register is opaque to the constant folder,
+  // so the final G_ADD with Lo below is never folded away either.
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+  LLT S32 = LLT::scalar(32);
+
+  uint32_t Bits = static_cast<uint32_t>(Val);
+  int32_t Lo = SignExtend32<20>(Bits & 0xFFFFF);
+  uint32_t Hi = (Bits - static_cast<uint32_t>(Lo)) >> 20;
+
+  auto HiConst = MIRBuilder.buildConstant(S32, Hi);
+  auto ShiftAmt = MIRBuilder.buildConstant(S32, 20);
+
+  Type *S32Ty = IntegerType::get(MI.getMF()->getFunction().getContext(), 32);
+  Register Shifted = MRI.createGenericVirtualRegister(S32);
+  CallLowering::ArgInfo Result = {Shifted, S32Ty, 0};
+  SmallVector<CallLowering::ArgInfo, 2> Args = {
+      {HiConst.getReg(0), S32Ty, 0}, {ShiftAmt.getReg(0), S32Ty, 0}};
+  if (Helper.createLibcall("__lc2k_shl", Result, Args, CallingConv::C,
+                           LocObserver, &MI) != LegalizerHelper::Legalized)
+    return false;
+
+  auto LoConst = MIRBuilder.buildConstant(S32, Lo);
+  MIRBuilder.buildAdd(MI.getOperand(0).getReg(), Shifted, LoConst);
 
   MI.eraseFromParent();
   return true;
@@ -510,6 +622,35 @@ bool LC2KLegalizerInfo::legalizeTrunc(LegalizerHelper &Helper,
 
   Register DeadHi = MRI.createGenericVirtualRegister(S32);
   MIRBuilder.buildUnmerge({Dst, DeadHi}, Src);
+  MI.eraseFromParent();
+  return true;
+}
+
+bool LC2KLegalizerInfo::legalizeBRJT(LegalizerHelper &Helper,
+                                     MachineInstr &MI) const {
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineFunction &MF = *MI.getMF();
+  LLT P0 = LLT::pointer(0, 32);
+
+  assert(MF.getJumpTableInfo()->getEntryKind() ==
+             MachineJumpTableInfo::EK_BlockAddress &&
+         "LC2K never overrides getJumpTableEncoding, so jump tables should "
+         "always use the default (plain block address) entry kind");
+
+  Register TblReg = MI.getOperand(0).getReg();
+  Register IdxReg = MI.getOperand(2).getReg();
+
+  // See the G_BRJT legalizer-rule comment above: the index is already a
+  // word offset, so this is a plain pointer add, not a scaled one.
+  auto Addr = MIRBuilder.buildPtrAdd(P0, TblReg, IdxReg);
+
+  MachineMemOperand *MMO = MF.getMachineMemOperand(
+      MachinePointerInfo::getJumpTable(MF), MachineMemOperand::MOLoad, P0,
+      Align(4));
+  auto Target = MIRBuilder.buildLoad(P0, Addr, *MMO);
+
+  MIRBuilder.buildBrIndirect(Target.getReg(0));
+
   MI.eraseFromParent();
   return true;
 }

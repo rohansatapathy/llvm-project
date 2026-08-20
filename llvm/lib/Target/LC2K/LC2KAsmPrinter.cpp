@@ -16,7 +16,9 @@
 #include "LC2K.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineOperand.h"
+#include "llvm/IR/Module.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
@@ -72,6 +74,28 @@ void LC2KAsmPrinter::emitInstruction(const MachineInstr *MI) {
   }
 
   EmitToStreamer(*OutStreamer, Inst);
+}
+
+void LC2KAsmPrinter::emitConstantPool() {
+  const MachineConstantPool *MCP = MF->getConstantPool();
+  const std::vector<MachineConstantPoolEntry> &CP = MCP->getConstants();
+  for (unsigned I = 0, E = CP.size(); I != E; ++I) {
+    const MachineConstantPoolEntry &CPE = CP[I];
+    assert(!CPE.isMachineConstantPoolEntry() &&
+           "LC2K never creates target-specific constant pool values");
+    DeferredConstantPool.push_back({GetCPISymbol(I), CPE.Val.ConstVal});
+  }
+}
+
+bool LC2KAsmPrinter::doFinalization(Module &M) {
+  // Must run before AsmPrinter::doFinalization(M), which ends by calling
+  // OutStreamer->finish() -- emitting anything after that point is
+  // undefined behavior.
+  for (const DeferredConstantPoolEntry &Entry : DeferredConstantPool) {
+    OutStreamer->emitLabel(Entry.Sym);
+    emitGlobalConstant(M.getDataLayout(), Entry.Val);
+  }
+  return AsmPrinter::doFinalization(M);
 }
 
 char LC2KAsmPrinter::ID = 0;

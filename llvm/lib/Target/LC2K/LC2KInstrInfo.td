@@ -106,6 +106,23 @@ def CALL : LC2KPseudo<(outs), (ins GPR:$callee)>;
 let isCall = 1, isCodeGenOnly = 1 in
 def JALR_CALL : LC2KInstJType<OPC_JALR>;
 
+// Real (encoded) form of JALR used for the indirect branch a jump-table
+// dispatch (G_BRJT/G_BRINDIRECT, see LC2KLegalizerInfo::legalizeBRJT and
+// LC2KInstructionSelector::selectBrIndirect) bottoms out into. Identical
+// encoding to JALR -- again "jump to regA, save return address in regB" --
+// but unlike JALR this form is not a return: it's a mid-function branch
+// with real successors (the switch's case blocks), so it must not carry
+// isReturn (which would make later passes treat it as having no
+// successors) or isCall (it doesn't fall through). The discarded
+// return-address write goes to R0 (hardwired zero), exactly like the real
+// JALR return sequence discards its own equivalent write (see
+// LC2KCallLowering::lowerReturn). isCodeGenOnly for the same reason as
+// JALR_CALL: assembly should only ever spell this encoding as `jalr`, and
+// the disassembler decodes it back to plain JALR.
+let isIndirectBranch = true, isTerminator = true, isBarrier = true,
+    isCodeGenOnly = 1 in
+def JALR_IND : LC2KInstJType<OPC_JALR>;
+
 // PSEUDO_SELECT and PSEUDO_CMP01 stand in for G_SELECT and G_ICMP (eq/ne):
 // both require real, multi-block control flow to implement on LC2K (no
 // conditional move and no compare-into-register instruction), which can't
