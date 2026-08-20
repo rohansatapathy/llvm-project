@@ -26,14 +26,13 @@ body:             |
   bb.0 (%ir-block.0):
     ; CHECK-LABEL: name: f
     ; A store directly to a frame index folds straight into SW's
-    ; (frame-index, byte-offset) operands -- eliminateFrameIndex does the
-    ; byte->word conversion later, at PEI time.
+    ; (frame-index, word-offset) operands.
     ; CHECK: %1:gpr = ADDI $r0, @g
     ; CHECK: %4:gpr = ADDI $r0, 4
-    ; A global-relative constant offset (@g + 4 bytes) is not folded into a
+    ; A global-relative constant offset (@g + 1 word) is not folded into a
     ; single symbolic offset in v1: the G_PTR_ADD materializes its own
-    ; address (word offset = byte offset / 4 = 1) on top of the already
-    ; materialized global base ...
+    ; address (word offset 1) on top of the already materialized global
+    ; base ...
     ; CHECK: %3:gpr = ADDI %1, 1
     ; CHECK: SW %4, %stack.0.s, 0
     ; ... and the store then just uses that already-materialized register
@@ -43,7 +42,7 @@ body:             |
     %1:gprb(p0) = G_GLOBAL_VALUE @g
     %4:gprb(s32) = G_CONSTANT i32 4
     %0:gprb(p0) = G_FRAME_INDEX %stack.0.s
-    %2:gprb(s32) = G_CONSTANT i32 4
+    %2:gprb(s32) = G_CONSTANT i32 1
     %3:gprb(p0) = G_PTR_ADD %1, %2(s32)
     G_STORE %4(s32), %0(p0) :: (store (s32) into %ir.s)
     G_STORE %4(s32), %3(p0) :: (store (s32) into %ir.p1)

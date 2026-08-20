@@ -16,14 +16,11 @@
 /// G_BRCOND, G_SELECT, G_ICMP eq/ne) have no 1:1 hardware equivalent, so this
 /// selector is entirely hand-written.
 ///
-/// Pointer values held in GPRs are LC2K *word* addresses (byte address / 4):
-/// LC2K's memory is only word-addressable, while generic-MI/LLVM IR pointer
-/// arithmetic is always byte-based (see LC2KFrameLowering and
-/// LC2KRegisterInfo::eliminateFrameIndex for the existing byte->word
-/// conversions this selector must stay consistent with). This selector is
-/// the layer responsible for converting constant byte offsets to word
-/// offsets whenever they get folded into a real instruction's immediate
-/// field.
+/// Pointer values held in GPRs are LC2K *word* addresses. LC2K's memory is
+/// only word-addressable, and the DataLayout declares a 32-bit byte (b:32),
+/// so generic-MI/LLVM IR pointer arithmetic is already word-granular by the
+/// time it reaches this selector -- constant pointer offsets can be folded
+/// into instruction immediates directly, with no byte->word scaling needed.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -455,13 +452,10 @@ bool LC2KInstructionSelector::selectPtrAdd(MachineInstr &I) const {
 
   auto Cst = getIConstantVRegSExtVal(PtrAdd.getOffsetReg(), MRI);
   if (!Cst)
-    // A non-constant pointer addend has no cheap lowering on this ISA: the
-    // base register holds a word address but the addend is a byte delta,
-    // and there's no divide/shift hardware to scale it at runtime.
+    // Non-constant pointer addends are not handled by this selector.
     return false;
 
-  assert(*Cst % 4 == 0 && "unaligned pointer offset");
-  int64_t WordOff = *Cst / 4;
+  int64_t WordOff = *Cst;
 
   if (isInt<20>(WordOff)) {
     constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
@@ -485,8 +479,7 @@ void LC2KInstructionSelector::appendAddrOperands(
   MachineInstr *Def = MRI.getVRegDef(PtrReg);
 
   if (Def->getOpcode() == TargetOpcode::G_FRAME_INDEX) {
-    // Byte offset (always 0 here); LC2KRegisterInfo::eliminateFrameIndex
-    // does the byte->word conversion itself at PEI time.
+    // Offset is always 0 here.
     MIB.addFrameIndex(Def->getOperand(1).getIndex());
     MIB.addImm(0);
     return;
@@ -504,14 +497,12 @@ void LC2KInstructionSelector::appendAddrOperands(
     if (auto Cst = getIConstantVRegSExtVal(PtrAdd.getOffsetReg(), MRI)) {
       MachineInstr *BaseDef = MRI.getVRegDef(Base);
       if (BaseDef->getOpcode() == TargetOpcode::G_FRAME_INDEX) {
-        // Byte offset again -- eliminateFrameIndex scales it.
         MIB.addFrameIndex(BaseDef->getOperand(1).getIndex());
         MIB.addImm(*Cst);
         return;
       }
       if (BaseDef->getOpcode() != TargetOpcode::G_GLOBAL_VALUE) {
-        assert(*Cst % 4 == 0 && "unaligned pointer offset");
-        int64_t WordOff = *Cst / 4;
+        int64_t WordOff = *Cst;
         if (isInt<20>(WordOff)) {
           MIB.addReg(Base);
           MIB.addImm(WordOff);

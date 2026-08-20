@@ -80,8 +80,6 @@ bool LC2KRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   int Offset = ObjectFPOffset + StackSize + ObjectInternalOffset;
 
-  assert(Offset % 4 == 0 && "LC2K stack offsets should be word-aligned");
-
   assert(isInt<20>(Offset) &&
          "Stack offsets larger than 20 bits are not supported");
 
@@ -90,8 +88,7 @@ bool LC2KRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
          "Unexpected opcode in frame index elimination");
 
   MI.getOperand(FIOperandNum).ChangeToRegister(LC2K::SP, /*isDef=*/false);
-  // Convert byte offset to word offset.
-  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset / 4);
+  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
 
   return false;
 }

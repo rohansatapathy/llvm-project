@@ -38,13 +38,12 @@ void LC2KFrameLowering::emitPrologue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  assert(StackSize % 4 == 0 && "Stack size must be word-aligned");
-  assert(isInt<20>(-StackSize / 4) &&
+  assert(isInt<20>(-StackSize) &&
          "Stack frame too large for addi immediate field");
 
   BuildMI(MBB, MBBI, DL, TII.get(LC2K::ADDI), LC2K::SP)
       .addReg(LC2K::SP)
-      .addImm(-StackSize / 4)
+      .addImm(-StackSize)
       .setMIFlag(MachineInstr::FrameSetup);
 }
 
@@ -59,13 +58,12 @@ void LC2KFrameLowering::emitEpilogue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  assert(StackSize % 4 == 0 && "Stack size must be word-aligned");
-  assert(isInt<20>(StackSize / 4) &&
+  assert(isInt<20>(StackSize) &&
          "Stack frame too large for addi immediate field");
 
   BuildMI(MBB, MBBI, DL, TII.get(LC2K::ADDI), LC2K::SP)
       .addReg(LC2K::SP)
-      .addImm(StackSize / 4)
+      .addImm(StackSize)
       .setMIFlag(MachineInstr::FrameDestroy);
 }
 
