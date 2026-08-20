@@ -60,15 +60,12 @@ void LC2K::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
     writeval = static_cast<uint32_t>(sval / 4);
     break;
   case R_LC2K_20:
-    // OR the 20-bit word address into the instruction, same bit-packing as
-    // applyFixup
+    checkInt(ctx, loc, sval / 4, 20, rel);
     writeval = static_cast<uint32_t>((read32le(loc) & ~0xFFFFF) |
                                      ((sval / 4) & 0xFFFFF));
     break;
   case R_LC2K_20_PCPLUS1REL:
-    // R_PC means LLD gives val = S - P + A; convert to LC2K's (target - (PC+1))
-    // / 4 which is (val / 4) - 1, identical to adjustFixupValue's pcplus1rel
-    // case
+    checkInt(ctx, loc, sval / 4 - 1, 20, rel);
     writeval = static_cast<uint32_t>((read32le(loc) & ~0xFFFFF) |
                                      (((sval / 4) - 1) & 0xFFFFF));
     break;

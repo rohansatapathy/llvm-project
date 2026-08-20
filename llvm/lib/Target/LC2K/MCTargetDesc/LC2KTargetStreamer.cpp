@@ -67,8 +67,8 @@ void LC2KAsmStreamer::emitFill(const MCExpr &NumValues, int64_t Size,
     llvm_unreachable("Negative fill count");
   }
 
-  if (Size != 1) {
-    llvm_unreachable("LC2K only supports word-size fills (Size == 1)");
+  if (Size != 4) {
+    llvm_unreachable("LC2K only supports word-size fills (Size == 4 bytes)");
   }
 
   if (!isInt<32>(Expr)) {
@@ -86,7 +86,7 @@ void LC2KAsmStreamer::emitFill(const MCExpr &NumValues, int64_t Size,
 
 void LC2KAsmStreamer::emitValueImpl(const MCExpr *Value, unsigned Size,
                                     SMLoc Loc) {
-  if (Size != 1) {
+  if (Size != 4) {
     llvm_unreachable("Invalid size for value");
   }
 

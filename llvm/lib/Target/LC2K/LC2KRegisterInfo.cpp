@@ -14,6 +14,7 @@
 
 #include "MCTargetDesc/LC2KMCTargetDesc.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -23,6 +24,7 @@
 #include "llvm/CodeGenTypes/MachineValueType.h"
 #include "llvm/MC/MCRegister.h"
 #include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "LC2KGenRegisterInfo.inc"
@@ -80,8 +82,11 @@ bool LC2KRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   int Offset = ObjectFPOffset + StackSize + ObjectInternalOffset;
 
-  assert(isInt<20>(Offset) &&
-         "Stack offsets larger than 20 bits are not supported");
+  // NOTE: stack frames wider than 20 bits are unsupported, change in future
+  // if needed.
+  if (!isInt<20>(Offset))
+    reportFatalUsageError("LC2K: stack frame offset " + Twine(Offset) +
+                          " exceeds range of 20-bit signed immediate");
 
   assert((MI.getOpcode() == LC2K::LW || MI.getOpcode() == LC2K::SW ||
           MI.getOpcode() == LC2K::ADDI) &&

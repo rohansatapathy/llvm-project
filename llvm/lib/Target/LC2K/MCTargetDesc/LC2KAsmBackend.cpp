@@ -10,10 +10,12 @@
 #include "LC2KMCTargetDesc.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
+#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 
@@ -96,6 +98,12 @@ void LC2KAsmBackend::applyFixup(const MCFragment &F, const MCFixup &Fixup,
   Value = adjustFixupValue(static_cast<unsigned>(Kind), Value);
   if (!Value)
     return; // This value doesn't change the encoding
+
+  // Check whether resolved fixup is in range.
+  if (IsResolved &&
+      (Kind == LC2K::fixup_lc2k_20 || Kind == LC2K::fixup_lc2k_pcplus1rel) &&
+      !isInt<20>(static_cast<int32_t>(Value)))
+    getContext().reportError(Fixup.getLoc(), "fixup value out of range");
 
   uint32_t Inst = 0;
   for (size_t i = 0; i < sizeof(uint32_t); i++) { // NOLINT

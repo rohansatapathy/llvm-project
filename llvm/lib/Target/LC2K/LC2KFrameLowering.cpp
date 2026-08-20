@@ -14,10 +14,12 @@
 
 #include "LC2KInstrInfo.h"
 #include "LC2KRegisterInfo.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
@@ -38,8 +40,11 @@ void LC2KFrameLowering::emitPrologue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  assert(isInt<20>(-StackSize) &&
-         "Stack frame too large for addi immediate field");
+  // NOTE: Stack frames wider than 20 bits are unsupported, change in future
+  // if needed.
+  if (!isInt<20>(-StackSize))
+    reportFatalUsageError("LC2K: stack frame size " + Twine(StackSize) +
+                          " exceeds 20-bit ADDI immediate range");
 
   BuildMI(MBB, MBBI, DL, TII.get(LC2K::ADDI), LC2K::SP)
       .addReg(LC2K::SP)
@@ -58,8 +63,11 @@ void LC2KFrameLowering::emitEpilogue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  assert(isInt<20>(StackSize) &&
-         "Stack frame too large for addi immediate field");
+  // NOTE: Stack frames wider than 20 bits are unsupported, change in future
+  // if needed.
+  if (!isInt<20>(StackSize))
+    reportFatalUsageError("LC2K: stack frame size " + Twine(StackSize) +
+                          " exceeds 20-bit ADDI immediate range");
 
   BuildMI(MBB, MBBI, DL, TII.get(LC2K::ADDI), LC2K::SP)
       .addReg(LC2K::SP)
