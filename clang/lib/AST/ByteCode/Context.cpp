@@ -32,8 +32,6 @@ Context::Context(ASTContext &Ctx) : Ctx(Ctx), P(new Program(*this)) {
   this->IntWidth = Ctx.getTargetInfo().getIntWidth();
   this->LongWidth = Ctx.getTargetInfo().getLongWidth();
   this->LongLongWidth = Ctx.getTargetInfo().getLongLongWidth();
-  assert(Ctx.getTargetInfo().getCharWidth() == 8 &&
-         "We're assuming 8 bit chars");
 }
 
 Context::~Context() = default;
@@ -226,7 +224,7 @@ bool Context::evaluateStringRepr(const EvalSettings &Settings,
 
     // Must be char.
     if (Ptr.isBlockPointer() &&
-        Ptr.getFieldDesc()->getElemDataSize() != 1 /*bytes*/)
+        Ptr.getFieldDesc()->getElemDataSize() != (getCharBit() / 8))
       return false;
     if (Ptr.isStringPointer() &&
         !Ptr.asStringPointer().getLiteral()->isOrdinary())
@@ -257,6 +255,10 @@ bool Context::evaluateStringRepr(const EvalSettings &Settings,
 
       const char *Addr = reinterpret_cast<const char *>(Ptr.getRawAddress());
 
+      // FIXME: This copies Size *bytes* of raw element storage, which is only
+      // correct when chars are 1 byte wide. On targets with wider chars (e.g.
+      // LC2K's 4-byte char) it reads a quarter of the string, interleaved
+      // with each element's padding bytes. Copy element by element instead.
       if (Ptr.isStringPointer())
         Result.assign(Addr, Size - static_cast<unsigned>(Limited));
       else
@@ -311,6 +313,9 @@ bool Context::evaluateString(const EvalSettings &Settings, const Expr *E,
 
     unsigned N = Ptr.getNumElems();
 
+    // TODO: add a fast path for elemSize() == getCharBit() / 8 (e.g. LC2K's
+    // 4-byte char) that scans raw elements of the known width directly,
+    // skipping the generic per-element INT_TYPE_SWITCH loop below.
     if (Ptr.elemSize() == 1 /* bytes */) {
       const char *Chars = reinterpret_cast<const char *>(Ptr.getRawAddress());
       if (Ptr.isStringPointer()) {
@@ -397,6 +402,9 @@ std::optional<uint64_t> Context::evaluateStrlen(const EvalSettings &Settings,
       return false;
 
     unsigned N = Ptr.getNumElems();
+    // TODO: add a fast path for elemSize() == getCharBit() / 8 (e.g. LC2K's
+    // 4-byte char) that scans raw elements of the known width directly,
+    // skipping the generic per-element INT_TYPE_SWITCH loop below.
     if (Ptr.elemSize() == 1) {
       unsigned Size = N - Ptr.getIndex();
       Result =
@@ -548,10 +556,10 @@ OptPrimType Context::classify(QualType T) const {
       return integralTypeToPrimTypeU(this->LongLongWidth);
 
     if (Kind == BuiltinType::SChar || Kind == BuiltinType::Char_S)
-      return integralTypeToPrimTypeS(8);
+      return integralTypeToPrimTypeS(getCharBit());
     if (Kind == BuiltinType::UChar || Kind == BuiltinType::Char_U ||
         Kind == BuiltinType::Char8)
-      return integralTypeToPrimTypeU(8);
+      return integralTypeToPrimTypeU(getCharBit());
 
     if (BT->isSignedInteger())
       return integralTypeToPrimTypeS(Ctx.getIntWidth(T));
