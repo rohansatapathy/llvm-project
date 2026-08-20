@@ -559,12 +559,15 @@ static std::string computeLC2KDataLayout() {
   // Use ELF mangling.
   Ret += "-m:e";
 
-  // LC2K is 4-byte word-addressable, so all integer types and floating point
-  // types should be minimum 32-bit aligned.
-  // TODO: Once CharWidth/CharAlign are set to 32 bits, change i8 to be
-  // 32-bit aligned.
-  Ret += "-i8:8:32";
-  Ret += "-i16:32:32";
+  // LC2K is word-addressable with 32-bit words: a "byte" is a full 32-bit
+  // word. This makes DataLayout's byte-based size/alignment queries
+  // (getTypeStoreSize, getTypeAllocSize, etc.) match the hardware's actual
+  // addressable unit instead of assuming 8-bit bytes.
+  Ret += "-b:32";
+
+  // Declaring a non-8-bit byte width resets the default int/float/vector/
+  // pointer specs and struct alignment, so they must be specified
+  // explicitly from here on.
   Ret += "-i32:32:32";
   Ret += "-i64:32:32";
   Ret += "-f32:32:32";

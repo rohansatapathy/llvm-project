@@ -12,7 +12,7 @@ declare void @llvm.va_start.p0(ptr)
 ; CHECK-LABEL: name: f
 ; CHECK: %2:_(p0) = G_FRAME_INDEX %stack.0.ap
 ; CHECK: %4:_(p0) = G_LOAD %2(p0)
-; CHECK: %5:_(s32) = G_CONSTANT i32 4
+; CHECK: %5:_(s32) = G_CONSTANT i32 1
 ; CHECK: %6:_(p0) = G_PTR_ADD %4, %5(s32)
 ; CHECK: G_STORE %6(p0), %2(p0)
 ; CHECK: %3:_(s32) = G_LOAD %4(p0)
