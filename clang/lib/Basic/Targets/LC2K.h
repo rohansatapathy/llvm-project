@@ -18,6 +18,7 @@ public:
       : TargetInfo(Triple) {
     // Pointers and native integers (word-sized)
     PointerWidth = PointerAlign = 32;
+    CharWidth = CharAlign = 32;
     IntWidth = IntAlign = 32;
     LongWidth = LongAlign = 32;
 

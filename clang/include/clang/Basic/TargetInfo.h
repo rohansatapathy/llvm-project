@@ -88,6 +88,7 @@ enum class FloatModeKind {
 /// CPU target.
 struct TransferrableTargetInfo {
   unsigned char PointerWidth, PointerAlign;
+  unsigned char CharWidth, CharAlign;
   unsigned char BoolWidth, BoolAlign;
   unsigned char ShortWidth, ShortAlign;
   unsigned char IntWidth, IntAlign;
@@ -518,8 +519,8 @@ public:
   /// Return the alignment of '_Bool' and C++ 'bool' for this target.
   unsigned getBoolAlign() const { return BoolAlign; }
 
-  unsigned getCharWidth() const { return 8; } // FIXME
-  unsigned getCharAlign() const { return 8; } // FIXME
+  unsigned getCharWidth() const { return CharWidth; }
+  unsigned getCharAlign() const { return CharAlign; }
 
   /// getShortWidth/Align - Return the size of 'signed short' and
   /// 'unsigned short' for this target, in bits.

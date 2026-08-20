@@ -1763,6 +1763,8 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
 
   Kind = kind;
 
+  const unsigned CharWidth = getCharWidth(Kind, PP.getTargetInfo());
+
   const char *TokBegin = begin;
 
   // Skip over wide character determinant.
@@ -1797,11 +1799,8 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
 
   // FIXME: The "Value" is an uint64_t so we can handle char literals of
   // up to 64-bits.
-  // FIXME: This extensively assumes that 'char' is 8-bits.
-  assert(PP.getTargetInfo().getCharWidth() == 8 &&
-         "Assumes char is 8 bits");
   assert(PP.getTargetInfo().getIntWidth() <= 64 &&
-         (PP.getTargetInfo().getIntWidth() & 7) == 0 &&
+         (PP.getTargetInfo().getIntWidth() % PP.getTargetInfo().getCharWidth()) == 0 &&
          "Assumes sizeof(int) on target is <= 64 and a multiple of char");
   assert(PP.getTargetInfo().getWCharWidth() <= 64 &&
          "Assumes sizeof(wchar) on target is <= 64");
@@ -1885,7 +1884,6 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
       ++buffer_begin;
       continue;
     }
-    unsigned CharWidth = getCharWidth(Kind, PP.getTargetInfo());
     uint64_t result =
         ProcessCharEscape(TokBegin, begin, end, HadError,
                           FullSourceLoc(Loc, PP.getSourceManager()), CharWidth,
@@ -1919,9 +1917,9 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
     LitVal = 0;
     for (size_t i = 0; i < NumCharsSoFar; ++i) {
       // check for enough leading zeros to shift into
-      multi_char_too_long |= (LitVal.countl_zero() < 8);
-      LitVal <<= 8;
-      LitVal = LitVal + (codepoint_buffer[i] & 0xFF);
+      multi_char_too_long |= (LitVal.countl_zero() < CharWidth);
+      LitVal <<= CharWidth;
+      LitVal = LitVal + (codepoint_buffer[i] & (~0u >> (32 - CharWidth)));
     }
   } else if (NumCharsSoFar > 0) {
     // otherwise just take the last character
