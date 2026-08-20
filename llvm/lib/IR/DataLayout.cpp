@@ -1017,7 +1017,7 @@ TypeSize DataLayout::getTypeAllocSize(Type *Ty) const {
   }
   case Type::IntegerTyID: {
     unsigned BitWidth = Ty->getIntegerBitWidth();
-    TypeSize Size = TypeSize::getFixed(divideCeil(BitWidth, 8));
+    TypeSize Size = TypeSize::getFixed(divideCeil(BitWidth, ByteWidth));
     Align A = getIntegerAlignment(BitWidth, /*ABI=*/true);
     return alignTo(Size, A.value());
   }
