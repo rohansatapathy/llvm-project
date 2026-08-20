@@ -2,9 +2,12 @@
 
 # G_FNEG/G_FABS/G_FCOPYSIGN have no LC2K-specific rule and fall through to
 # .lower(): per LC2KLegalizerInfo.cpp these are pure sign-bit manipulation,
-# so their generic expansions are G_CONSTANT + G_XOR/G_AND/G_OR, all already
-# legal at s32 -- no libcall needed, unlike the real arithmetic ops in
-# float-arith.mir.
+# so their generic expansions are G_CONSTANT + G_XOR/G_AND/G_OR. The sign-bit
+# masks themselves (0x80000000/0x7FFFFFFF) don't fit a single ADDI immediate,
+# so legalizeConstant further rewrites each G_CONSTANT into a
+# __lc2k_shl(hi, 20) libcall plus a low-half G_ADD (see the legalizeConstant
+# comment) -- unlike the real arithmetic ops in float-arith.mir, this is the
+# only libcall these three ops need.
 
 --- |
   define void @fneg() { ret void }
@@ -24,8 +27,13 @@ body:             |
 
     ; CHECK-LABEL: name: fneg
     ; CHECK: legalized: true
-    ; CHECK: %2:_(s32) = G_CONSTANT i32 -2147483648
-    ; CHECK: %1:_(s32) = G_XOR %0, %2
+    ; CHECK: G_CONSTANT i32 2048
+    ; CHECK: G_CONSTANT i32 20
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: CALL
+    ; CHECK: G_CONSTANT i32 0
+    ; CHECK: [[MASK:%[0-9]+]]:_(s32) = G_ADD
+    ; CHECK: G_XOR %0, [[MASK]]
     %0:_(s32) = COPY $r1
     %1:_(s32) = G_FNEG %0
     $r1 = COPY %1(s32)
@@ -44,8 +52,13 @@ body:             |
 
     ; CHECK-LABEL: name: fabs
     ; CHECK: legalized: true
-    ; CHECK: %2:_(s32) = G_CONSTANT i32 2147483647
-    ; CHECK: %1:_(s32) = G_AND %0, %2
+    ; CHECK: G_CONSTANT i32 2048
+    ; CHECK: G_CONSTANT i32 20
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: CALL
+    ; CHECK: G_CONSTANT i32 -1
+    ; CHECK: [[MASK:%[0-9]+]]:_(s32) = G_ADD
+    ; CHECK: G_AND %0, [[MASK]]
     %0:_(s32) = COPY $r1
     %1:_(s32) = G_FABS %0
     $r1 = COPY %1(s32)
@@ -65,8 +78,14 @@ body:             |
 
     ; CHECK-LABEL: name: fcopysign
     ; CHECK: legalized: true
-    ; CHECK: G_CONSTANT i32 -2147483648
-    ; CHECK: G_CONSTANT i32 2147483647
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: CALL
+    ; CHECK: G_CONSTANT i32 0
+    ; CHECK: G_ADD
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: CALL
+    ; CHECK: G_CONSTANT i32 -1
+    ; CHECK: G_ADD
     ; CHECK: G_AND
     ; CHECK: G_AND
     ; CHECK: G_OR

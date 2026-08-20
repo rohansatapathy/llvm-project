@@ -73,6 +73,8 @@ private:
   bool selectXor(MachineInstr &I) const;
   bool selectFrameIndex(MachineInstr &I) const;
   bool selectGlobalValue(MachineInstr &I) const;
+  bool selectJumpTable(MachineInstr &I) const;
+  bool selectBrIndirect(MachineInstr &I) const;
   bool selectPtrAdd(MachineInstr &I) const;
   bool selectLoadStore(MachineInstr &I) const;
   bool selectICmp(MachineInstr &I) const;
@@ -189,6 +191,10 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectFrameIndex(I);
   case TargetOpcode::G_GLOBAL_VALUE:
     return selectGlobalValue(I);
+  case TargetOpcode::G_JUMP_TABLE:
+    return selectJumpTable(I);
+  case TargetOpcode::G_BRINDIRECT:
+    return selectBrIndirect(I);
   case TargetOpcode::G_PTR_ADD:
     return selectPtrAdd(I);
   case TargetOpcode::G_LOAD:
@@ -444,16 +450,51 @@ bool LC2KInstructionSelector::selectGlobalValue(MachineInstr &I) const {
   return true;
 }
 
+bool LC2KInstructionSelector::selectJumpTable(MachineInstr &I) const {
+  // Same idea as selectGlobalValue: the base address of a jump table is
+  // just another word address materialized with ADDI R0,<sym>, relying on
+  // the same fixup_lc2k_20 byte->word conversion.
+  Register Dst = I.getOperand(0).getReg();
+  int JTI = I.getOperand(1).getIndex();
+  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
+                    Dst)
+                .addReg(LC2K::R0)
+                .addJumpTableIndex(JTI));
+  I.eraseFromParent();
+  return true;
+}
+
+bool LC2KInstructionSelector::selectBrIndirect(MachineInstr &I) const {
+  // Same "jump to regA, discard the return address into R0" shape as a
+  // plain return (see LC2KCallLowering::lowerReturn), but using JALR_IND
+  // instead of JALR so this isn't mistaken for a return -- see the
+  // JALR_IND comment in LC2KInstrInfo.td.
+  Register Target = I.getOperand(0).getReg();
+  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::JALR_IND))
+                .addReg(LC2K::R0, RegState::Define)
+                .addReg(Target));
+  I.eraseFromParent();
+  return true;
+}
+
 bool LC2KInstructionSelector::selectPtrAdd(MachineInstr &I) const {
   auto &PtrAdd = cast<GPtrAdd>(I);
   MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
   Register Dst = PtrAdd.getReg(0);
   Register Base = PtrAdd.getBaseReg();
+  Register Offset = PtrAdd.getOffsetReg();
 
-  auto Cst = getIConstantVRegSExtVal(PtrAdd.getOffsetReg(), MRI);
-  if (!Cst)
-    // Non-constant pointer addends are not handled by this selector.
-    return false;
+  auto Cst = getIConstantVRegSExtVal(Offset, MRI);
+  if (!Cst) {
+    // Non-constant addend: pointers are plain word addresses on LC2K, so
+    // this is just a register-register add, identical to selectAdd.
+    constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADD),
+                      Dst)
+                  .addReg(Base)
+                  .addReg(Offset));
+    I.eraseFromParent();
+    return true;
+  }
 
   int64_t WordOff = *Cst;
 
@@ -570,18 +611,45 @@ bool LC2KInstructionSelector::selectICmp(MachineInstr &I) const {
 bool LC2KInstructionSelector::selectBrCond(MachineInstr &I) const {
   MachineBasicBlock &MBB = *I.getParent();
   MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
-  MachineInstr &Next = *std::next(MachineBasicBlock::iterator(I));
 
   Register Cond = I.getOperand(0).getReg();
   MachineBasicBlock *TrueMBB = I.getOperand(1).getMBB();
 
+  // G_BRCOND is usually paired with an explicit sibling G_BR to the
+  // false-path target ("IRTranslator's fixed shape for conditional
+  // branches", see below) -- but IRTranslator::emitJumpTableHeader (the
+  // range check ahead of a jump-table dispatch) omits that sibling
+  // whenever the false-path target is already this block's fallthrough
+  // layout successor, leaving G_BRCOND as the block's only terminator.
+  // Handle that shape directly: since Cond is canonically 0/1 (see
+  // selectICmp/PSEUDO_CMP01), materialize a 1 and branch on equality to
+  // it -- BEQ is LC2K's only conditional branch, so there's no way to
+  // branch "if nonzero" outright, and unlike the two-terminator shapes
+  // below there's no sibling branch here to retarget, so the false path
+  // must be reached purely by the implicit fallthrough that's already
+  // there.
+  MachineBasicBlock::iterator NextIt =
+      std::next(MachineBasicBlock::iterator(I));
+  if (NextIt == MBB.end()) {
+    Register One = MRI.createVirtualRegister(&LC2K::GPRRegClass);
+    constrain(BuildMI(MBB, I, I.getDebugLoc(), TII.get(LC2K::ADDI), One)
+                  .addReg(LC2K::R0)
+                  .addImm(1));
+    constrain(BuildMI(MBB, I, I.getDebugLoc(), TII.get(LC2K::BEQ))
+                  .addReg(Cond)
+                  .addReg(One)
+                  .addMBB(TrueMBB));
+    I.eraseFromParent();
+    return true;
+  }
+
   // InstructionSelect visits a block's instructions in reverse order, so
-  // the terminator immediately after this G_BRCOND (always present -- see
-  // IRTranslator's fixed shape for conditional branches) may already have
-  // been independently selected into `BEQ_UNCOND R0,R0,%bb.false` by
-  // selectBr, or may still be the original generic G_BR %bb.false. Handle
-  // both: the false-target operand sits at index 0 for G_BR, index 2 for a
+  // the terminator immediately after this G_BRCOND may already have been
+  // independently selected into `BEQ_UNCOND R0,R0,%bb.false` by selectBr,
+  // or may still be the original generic G_BR %bb.false. Handle both: the
+  // false-target operand sits at index 0 for G_BR, index 2 for a
   // BEQ_UNCOND.
+  MachineInstr &Next = *NextIt;
   unsigned FalseMBBOpIdx;
   if (Next.getOpcode() == TargetOpcode::G_BR) {
     FalseMBBOpIdx = 0;

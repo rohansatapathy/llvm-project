@@ -36,6 +36,9 @@ private:
   bool legalizeExt(LegalizerHelper &Helper, MachineInstr &MI) const;
   bool legalizeTrunc(LegalizerHelper &Helper, MachineInstr &MI) const;
   bool legalizeFConstant(LegalizerHelper &Helper, MachineInstr &MI) const;
+  bool legalizeBRJT(LegalizerHelper &Helper, MachineInstr &MI) const;
+  bool legalizeConstant(LegalizerHelper &Helper, MachineInstr &MI,
+                        LostDebugLocObserver &LocObserver) const;
 };
 
 } // namespace llvm
