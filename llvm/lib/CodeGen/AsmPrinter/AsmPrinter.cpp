@@ -3327,6 +3327,17 @@ void AsmPrinter::emitConstantPool() {
 
 // Print assembly representations of the jump tables used by the current
 // function.
+/// DataLayout::getTypeStoreSize()/getTypeAllocSize() return sizes in units of
+/// the target's DataLayout-defined "byte" (DataLayout::getByteWidth(), which
+/// may be wider than 8 bits -- see the 'b:' DataLayout spec). MCStreamer's
+/// byte-oriented emission APIs (emitIntValue, emitValue, emitZeros, emitFill)
+/// always operate in real (8-bit) bytes, so every DataLayout-derived size
+/// must be converted at that boundary; on ordinary 8-bit-byte targets this is
+/// a no-op multiply by 1.
+static uint64_t toMCBytes(const DataLayout &DL, uint64_t DLBytes) {
+  return DLBytes * (DL.getByteWidth() / 8);
+}
+
 void AsmPrinter::emitJumpTableInfo() {
   const MachineJumpTableInfo *MJTI = MF->getJumpTableInfo();
   if (!MJTI) return;
@@ -3541,8 +3552,9 @@ void AsmPrinter::emitJumpTableEntry(const MachineJumpTableInfo &MJTI,
 
   assert(Value && "Unknown entry kind!");
 
-  unsigned EntrySize = MJTI.getEntrySize(getDataLayout());
-  OutStreamer->emitValue(Value, EntrySize);
+  const DataLayout &DL = getDataLayout();
+  unsigned EntrySize = MJTI.getEntrySize(DL);
+  OutStreamer->emitValue(Value, toMCBytes(DL, EntrySize));
 }
 
 /// EmitSpecialLLVMGlobal - Check to see if the specified global is a
@@ -4103,7 +4115,7 @@ static void emitGlobalConstantDataSequential(
     uint64_t Bytes = DL.getTypeAllocSize(CDS->getType());
     // Don't emit a 1-byte object as a .fill.
     if (Bytes > 1)
-      return AP.OutStreamer->emitFill(Bytes, Value);
+      return AP.OutStreamer->emitFill(toMCBytes(DL, Bytes), Value);
   }
 
   // If this can be emitted with .ascii/.asciz, emit it as such.
@@ -4135,7 +4147,7 @@ static void emitGlobalConstantDataSequential(
       DL.getTypeAllocSize(CDS->getElementType()) * CDS->getNumElements();
   assert(EmittedSize <= Size && "Size cannot be less than EmittedSize!");
   if (unsigned Padding = Size - EmittedSize)
-    AP.OutStreamer->emitZeros(Padding);
+    AP.OutStreamer->emitZeros(toMCBytes(DL, Padding));
 }
 
 static void emitGlobalConstantArray(const DataLayout &DL,
@@ -4148,7 +4160,7 @@ static void emitGlobalConstantArray(const DataLayout &DL,
 
   if (Value != -1) {
     uint64_t Bytes = DL.getTypeAllocSize(CA->getType());
-    AP.OutStreamer->emitFill(Bytes, Value);
+    AP.OutStreamer->emitFill(toMCBytes(DL, Bytes), Value);
   } else {
     for (unsigned I = 0, E = CA->getNumOperands(); I != E; ++I) {
       emitGlobalConstantImpl(DL, CA->getOperand(I), AP, BaseCV, Offset,
@@ -4195,7 +4207,7 @@ static void emitGlobalConstantVector(const DataLayout &DL, const Constant *CV,
 
   unsigned Size = DL.getTypeAllocSize(CV->getType());
   if (unsigned Padding = Size - EmittedSize)
-    AP.OutStreamer->emitZeros(Padding);
+    AP.OutStreamer->emitZeros(toMCBytes(DL, Padding));
 }
 
 static void emitGlobalConstantStruct(const DataLayout &DL,
@@ -4223,7 +4235,7 @@ static void emitGlobalConstantStruct(const DataLayout &DL,
     // Insert padding - this may include padding to increase the size of the
     // current field up to the ABI size (if the struct is not packed) as well
     // as padding to ensure that the next field starts at the right offset.
-    AP.OutStreamer->emitZeros(PadSize);
+    AP.OutStreamer->emitZeros(toMCBytes(DL, PadSize));
   }
   assert(SizeSoFar == Layout->getSizeInBytes() &&
          "Layout of constant struct may be incorrect!");
@@ -4270,7 +4282,8 @@ static void emitGlobalConstantFP(APFloat APF, Type *ET, AsmPrinter &AP) {
 
   // Emit the tail padding for the long double.
   const DataLayout &DL = AP.getDataLayout();
-  AP.OutStreamer->emitZeros(DL.getTypeAllocSize(ET) - DL.getTypeStoreSize(ET));
+  AP.OutStreamer->emitZeros(
+      toMCBytes(DL, DL.getTypeAllocSize(ET) - DL.getTypeStoreSize(ET)));
 }
 
 static void emitGlobalConstantFP(const ConstantFP *CFP, AsmPrinter &AP) {
@@ -4458,37 +4471,37 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
         uint64_t SizeSoFar = 0;
         for (unsigned int i = 0; i < numElements - 1; ++i) {
           uint64_t GapToNext = Layout->getElementOffset(i + 1) - SizeSoFar;
-          AP.OutStreamer->emitZeros(GapToNext);
+          AP.OutStreamer->emitZeros(toMCBytes(DL, GapToNext));
           SizeSoFar += GapToNext;
           emitGlobalAliasInline(AP, Offset + SizeSoFar, AliasList);
         }
-        AP.OutStreamer->emitZeros(Size - SizeSoFar);
+        AP.OutStreamer->emitZeros(toMCBytes(DL, Size - SizeSoFar));
         return;
       }
     }
-    return AP.OutStreamer->emitZeros(Size);
+    return AP.OutStreamer->emitZeros(toMCBytes(DL, Size));
   }
 
   if (isa<UndefValue>(CV))
-    return AP.OutStreamer->emitZeros(Size);
+    return AP.OutStreamer->emitZeros(toMCBytes(DL, Size));
 
   if (const ConstantInt *CI = dyn_cast<ConstantInt>(CV)) {
     if (isa<VectorType>(CV->getType()))
       return emitGlobalConstantVector(DL, CV, AP, AliasList);
 
     const uint64_t StoreSize = DL.getTypeStoreSize(CV->getType());
-    if (StoreSize <= 8) {
+    if (toMCBytes(DL, StoreSize) <= 8) {
       if (AP.isVerbose())
         AP.OutStreamer->getCommentOS()
             << format("0x%" PRIx64 "\n", CI->getZExtValue());
-      AP.OutStreamer->emitIntValue(CI->getZExtValue(), StoreSize);
+      AP.OutStreamer->emitIntValue(CI->getZExtValue(), toMCBytes(DL, StoreSize));
     } else {
       emitGlobalConstantLargeInt(CI, AP);
     }
 
     // Emit tail padding if needed
     if (Size != StoreSize)
-      AP.OutStreamer->emitZeros(Size - StoreSize);
+      AP.OutStreamer->emitZeros(toMCBytes(DL, Size - StoreSize));
 
     return;
   }
@@ -4498,18 +4511,18 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
       return emitGlobalConstantVector(DL, CV, AP, AliasList);
 
     const uint64_t StoreSize = DL.getTypeStoreSize(CV->getType());
-    if (StoreSize <= 8) {
+    if (toMCBytes(DL, StoreSize) <= 8) {
       if (AP.isVerbose())
         AP.OutStreamer->getCommentOS()
             << format("0x%" PRIx64 "\n", CB->getZExtValue());
-      AP.OutStreamer->emitIntValue(CB->getZExtValue(), StoreSize);
+      AP.OutStreamer->emitIntValue(CB->getZExtValue(), toMCBytes(DL, StoreSize));
     } else {
       emitGlobalConstantLargeByte(CB, AP);
     }
 
     // Emit tail padding if needed
     if (Size != StoreSize)
-      AP.OutStreamer->emitZeros(Size - StoreSize);
+      AP.OutStreamer->emitZeros(toMCBytes(DL, Size - StoreSize));
 
     return;
   }
@@ -4522,7 +4535,7 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
   }
 
   if (isa<ConstantPointerNull>(CV)) {
-    AP.OutStreamer->emitIntValue(0, Size);
+    AP.OutStreamer->emitIntValue(0, toMCBytes(DL, Size));
     return;
   }
 
@@ -4564,7 +4577,7 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
   if (AP.getObjFileLowering().supportIndirectSymViaGOTPCRel())
     handleIndirectSymViaGOTPCRel(AP, &ME, BaseCV, Offset);
 
-  AP.OutStreamer->emitValue(ME, Size);
+  AP.OutStreamer->emitValue(ME, toMCBytes(DL, Size));
 }
 
 /// EmitGlobalConstant - Print a general LLVM constant to the .s file.
