@@ -14,6 +14,7 @@
 #include "LC2KAsmPrinter.h"
 
 #include "LC2K.h"
+#include "LC2KInstrInfo.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -64,6 +65,29 @@ MCOperand LC2KAsmPrinter::lowerSymbolOperand(const MachineOperand &MO,
 }
 
 void LC2KAsmPrinter::emitInstruction(const MachineInstr *MI) {
+  // PSEUDO_LA's wide-address materialization only has a representation in
+  // the object-file (-filetype=obj) pipeline: it depends entirely on
+  // relocations (fixup_lc2k_hi12/fixup_lc2k_lo20, hand-encoded by
+  // LC2KMCCodeEmitter) to express "half of a symbol's address" -- a
+  // concept the plain positional text syntax LC2KAsmStreamer emits (meant
+  // to be fed to the course's own external assembler) has no way to
+  // spell at all, no matter how early it's expanded. On the text-only
+  // path (LC2KAsmStreamer::hasRawTextSupport()), fall back to the
+  // original single-ADDI form instead -- text output was never able to
+  // benefit from wide-address support in the first place (that assembler
+  // presumably has the exact same 20-bit-field limitation this whole
+  // feature works around, just with no relocations to defer the problem
+  // to), so this simply preserves its pre-existing behavior.
+  if (MI->getOpcode() == LC2K::PSEUDO_LA && OutStreamer->hasRawTextSupport()) {
+    MCInst Inst;
+    Inst.setOpcode(LC2K::ADDI);
+    Inst.addOperand(lowerOperand(MI->getOperand(0)));
+    Inst.addOperand(lowerOperand(MI->getOperand(1)));
+    Inst.addOperand(lowerOperand(MI->getOperand(2)));
+    EmitToStreamer(*OutStreamer, Inst);
+    return;
+  }
+
   MCInst Inst;
 
   Inst.setOpcode(MI->getOpcode());

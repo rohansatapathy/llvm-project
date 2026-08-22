@@ -138,3 +138,23 @@ def PSEUDO_SELECT : LC2KPseudo<(outs GPR:$dst),
 def PSEUDO_CMP01 : LC2KPseudo<(outs GPR:$dst),
                               (ins GPR:$lhs, GPR:$rhs, i32imm:$isEq)>;
 
+// Materializes the address of a symbol (global, external, jump table, or
+// eventually an MBB for long-branch construction) that isn't known to fit
+// a single ADDI's 20-bit immediate at compile time -- a symbol's real
+// address isn't known until link time, and even a same-object-file
+// absolute reference can't be proven to fit until then either (ELF
+// sections have no final address until the linker places them), so
+// wide-address materialization always uses this form unconditionally;
+// there's no cheaper form to try first. See selectGlobalValue/
+// selectJumpTable/selectAddrEs in LC2KInstructionSelector.cpp.
+//
+// Never round-tripped through assembly text or disassembly:
+// LC2KMCCodeEmitter::encodeInstruction hand-encodes this into a real (hi
+// ADDI + 20 doubling ADDs + lo ADDI) sequence before any bytes ever reach
+// an object file, so this opcode never survives past the assembler. Size
+// is the sequence's fixed encoding (22 instructions * 4 bytes), for any
+// generic code that queries instruction size before this pseudo has been
+// through encodeInstruction.
+let isCodeGenOnly = 1, Size = 88 in
+def PSEUDO_LA : LC2KPseudo<(outs GPR:$dst), (ins GPR:$base, i32imm:$sym)>;
+

@@ -24,9 +24,10 @@ body:             |
     liveins: $r1, $r2
 
     ; CHECK-LABEL: name: f
-    ; ADDR_ES lowers to ADDI $dst, R0, $sym, using the same offset-operand
-    ; slot (and fixup_lc2k_20 word-scaling) a global symbol would.
-    ; CHECK: %3:gpr = ADDI $r0, &__udivsi3
+    ; ADDR_ES lowers to PSEUDO_LA $dst, R0, $sym, the same wide-address
+    ; materialization a global symbol would use (see
+    ; materializeSymbolAddress).
+    ; CHECK: %3:gpr = PSEUDO_LA $r0, &__udivsi3
     ; CHECK: ADJCALLSTACKDOWN 0, 0, implicit-def $r14, implicit $r14
     ; CHECK: $r1 = COPY %0
     ; CHECK: $r2 = COPY %1

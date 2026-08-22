@@ -55,6 +55,8 @@ MCFixupKindInfo LC2KAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"fixup_lc2k_32", 0, 32, 0},
       {"fixup_lc2k_20", 0, 20, 0},
       {"fixup_lc2k_pcplus1rel", 0, 20, 0},
+      {"fixup_lc2k_hi12", 0, 20, 0},
+      {"fixup_lc2k_lo20", 0, 20, 0},
   };
 
   static_assert(std::size(Infos) == LC2K::NumTargetFixupKinds,
@@ -66,6 +68,21 @@ MCFixupKindInfo LC2KAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
   assert(unsigned(Kind - FirstTargetFixupKind) < std::size(Infos) &&
          "Invalid kind!");
   return Infos[Kind - FirstTargetFixupKind];
+}
+
+// Splits a word address into the (hi, lo) pair a wide-address sequence
+// (PSEUDO_LA, see LC2KInstrInfo.td) encodes: Lo is the low 20 bits
+// reinterpreted as a signed value (so it always independently fits a
+// single ADDI immediate, exactly like fixup_lc2k_20 already does for a
+// small address), and Hi is rounded to compensate for Lo's sign so that
+// (Hi << 20) + Lo reconstructs WordAddr exactly for any 32-bit value --
+// the same lui/addi-style split RISC-V uses, applied here to a word
+// address instead of a byte address. lld's LC2K::relocate (lld/ELF/Arch/
+// LC2K.cpp) computes this identically for the link-time-resolved case.
+static std::pair<uint32_t, int32_t> splitWideAddress(uint32_t WordAddr) {
+  int32_t Lo = SignExtend32<20>(WordAddr & 0xFFFFF);
+  uint32_t Hi = (WordAddr - static_cast<uint32_t>(Lo)) >> 20;
+  return {Hi, Lo};
 }
 
 static uint32_t adjustFixupValue(unsigned Kind, uint64_t Value) {
@@ -83,6 +100,14 @@ static uint32_t adjustFixupValue(unsigned Kind, uint64_t Value) {
     // LC2K branches are relative to PC+1, and LLVM gives branch offset
     // relative to just PC, so subtract 1 to compensate.
     return static_cast<uint32_t>(SValue / 4 - 1);
+  case LC2K::fixup_lc2k_hi12: {
+    auto [Hi, Lo] = splitWideAddress(static_cast<uint32_t>(SValue / 4));
+    return Hi;
+  }
+  case LC2K::fixup_lc2k_lo20: {
+    auto [Hi, Lo] = splitWideAddress(static_cast<uint32_t>(SValue / 4));
+    return static_cast<uint32_t>(Lo);
+  }
   default:
     llvm_unreachable("Invalid fixup kind!");
   }

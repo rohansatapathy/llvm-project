@@ -11,3 +11,8 @@ ELF_RELOC(R_LC2K_32, 1)
 ELF_RELOC(R_LC2K_20, 2)
 // 20-bit relative relocation (for beq, blt, bltu)
 ELF_RELOC(R_LC2K_20_PCPLUS1REL, 3)
+// High 12 bits of a relaxed wide-address hi/lo pair's word address
+// (rounding-compensated, see LC2KAsmBackend.cpp's adjustFixupValue)
+ELF_RELOC(R_LC2K_HI12, 4)
+// Low 20 bits of a relaxed wide-address hi/lo pair's word address
+ELF_RELOC(R_LC2K_LO20, 5)

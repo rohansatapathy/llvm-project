@@ -20,6 +20,16 @@ enum Fixups {
   fixup_lc2k_20,
   fixup_lc2k_pcplus1rel,
 
+  // Hi/lo halves of a PSEUDO_LA-expanded wide address: hi12 targets the
+  // first ADDI's immediate (the word address's top 12 bits,
+  // rounding-compensated so (hi << 20) + lo reconstructs it exactly -- see
+  // LC2KAsmBackend::adjustFixupValue), lo20 targets the trailing ADDI's
+  // immediate (the low 20 bits, always representable as a signed 20-bit
+  // value by construction, so unlike fixup_lc2k_20 this can never
+  // overflow).
+  fixup_lc2k_hi12,
+  fixup_lc2k_lo20,
+
   // Marker
   LastTargetFixupKind,
   NumTargetFixupKinds = LastTargetFixupKind - FirstTargetFixupKind

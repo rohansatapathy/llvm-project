@@ -50,6 +50,12 @@ unsigned LC2KELFObjectWriter::getRelocType(const MCFixup &Fixup,
   case LC2K::fixup_lc2k_pcplus1rel:
     Type = ELF::R_LC2K_20_PCPLUS1REL;
     break;
+  case LC2K::fixup_lc2k_hi12:
+    Type = ELF::R_LC2K_HI12;
+    break;
+  case LC2K::fixup_lc2k_lo20:
+    Type = ELF::R_LC2K_LO20;
+    break;
   case LC2K::fixup_lc2k_32:
   case FK_Data_4:
     Type = ELF::R_LC2K_32;

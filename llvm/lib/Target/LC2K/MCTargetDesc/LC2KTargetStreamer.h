@@ -58,6 +58,14 @@ public:
                   std::unique_ptr<MCCodeEmitter> CE,
                   std::unique_ptr<MCAsmBackend> TAB);
 
+  // Signals to target-independent AsmPrinter code (and LC2KAsmPrinter
+  // itself) that this streamer emits plain positional text meant for the
+  // course's own external assembler, not an object file -- e.g. used to
+  // decide that PSEUDO_LA's wide-address form, which only has a
+  // representation via relocations, must fall back to its original
+  // single-ADDI form here instead. See LC2KAsmPrinter::emitInstruction.
+  bool hasRawTextSupport() const override { return true; }
+
   bool emitSymbolAttribute(MCSymbol *Symbol, MCSymbolAttr Attribute) override;
 
   void emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,

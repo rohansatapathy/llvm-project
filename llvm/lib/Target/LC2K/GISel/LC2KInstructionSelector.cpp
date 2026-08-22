@@ -96,6 +96,19 @@ private:
   void materializeConstant(Register Dst, int64_t Val,
                            MachineInstr &Before) const;
 
+  /// Materializes the address of Sym (a global value, jump table, or
+  /// external symbol operand -- anything add-able via
+  /// MachineInstrBuilder::add) into Dst, inserted just before Before.
+  /// Always emits PSEUDO_LA unconditionally: unlike materializeConstant's
+  /// literal values, a symbol's real address is never known until link
+  /// time (and even a same-object-file absolute reference can't be proven
+  /// to fit a single ADDI until then either, since ELF sections have no
+  /// final address until the linker places them -- see the PSEUDO_LA doc
+  /// comment in LC2KInstrInfo.td), so there's no cheaper form to try
+  /// first the way there is for constants.
+  void materializeSymbolAddress(Register Dst, const MachineOperand &Sym,
+                                MachineInstr &Before) const;
+
   /// Appends the (base, offset) operand pair used by LW/SW/ADDI-style
   /// addressing for a pointer value held in PtrReg, folding a directly
   /// visible G_FRAME_INDEX / G_GLOBAL_VALUE / constant-offset G_PTR_ADD into
@@ -295,6 +308,14 @@ void LC2KInstructionSelector::materializeConstant(Register Dst, int64_t Val,
                   .addReg(LC2K::R0));
 }
 
+void LC2KInstructionSelector::materializeSymbolAddress(
+    Register Dst, const MachineOperand &Sym, MachineInstr &Before) const {
+  constrain(BuildMI(*Before.getParent(), Before, Before.getDebugLoc(),
+                    TII.get(LC2K::PSEUDO_LA), Dst)
+                .addReg(LC2K::R0)
+                .add(Sym));
+}
+
 bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
   Register Dst = I.getOperand(0).getReg();
   int64_t Val = I.getOperand(1).getCImm()->getSExtValue();
@@ -439,27 +460,16 @@ bool LC2KInstructionSelector::selectFrameIndex(MachineInstr &I) const {
 
 bool LC2KInstructionSelector::selectGlobalValue(MachineInstr &I) const {
   Register Dst = I.getOperand(0).getReg();
-  const GlobalValue *GV = I.getOperand(1).getGlobal();
-  // The fixup_lc2k_20 fixup already divides the symbol's resolved value by
-  // 4 at assembly time, so no manual scaling is needed here.
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
-                    Dst)
-                .addReg(LC2K::R0)
-                .addGlobalAddress(GV));
+  materializeSymbolAddress(Dst, I.getOperand(1), I);
   I.eraseFromParent();
   return true;
 }
 
 bool LC2KInstructionSelector::selectJumpTable(MachineInstr &I) const {
   // Same idea as selectGlobalValue: the base address of a jump table is
-  // just another word address materialized with ADDI R0,<sym>, relying on
-  // the same fixup_lc2k_20 byte->word conversion.
+  // just another symbol's word address.
   Register Dst = I.getOperand(0).getReg();
-  int JTI = I.getOperand(1).getIndex();
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
-                    Dst)
-                .addReg(LC2K::R0)
-                .addJumpTableIndex(JTI));
+  materializeSymbolAddress(Dst, I.getOperand(1), I);
   I.eraseFromParent();
   return true;
 }
@@ -526,11 +536,15 @@ void LC2KInstructionSelector::appendAddrOperands(
     return;
   }
 
-  if (Def->getOpcode() == TargetOpcode::G_GLOBAL_VALUE) {
-    MIB.addReg(LC2K::R0);
-    MIB.addGlobalAddress(Def->getOperand(1).getGlobal());
-    return;
-  }
+  // G_GLOBAL_VALUE is deliberately NOT folded here the way G_FRAME_INDEX is
+  // above: a global's address may need PSEUDO_LA's wide, multi-instruction
+  // form (see materializeSymbolAddress), which needs a real destination
+  // register to build the address into -- LW/SW's own destination register
+  // holds the loaded/stored data value, not an address, so there's nowhere
+  // to build a wide address even if this fold looked through to one. Global
+  // addresses always fall through to the general fallback below instead,
+  // where G_GLOBAL_VALUE's own independent selection (selectGlobalValue)
+  // materializes the full address into its own register first.
 
   if (Def->getOpcode() == TargetOpcode::G_PTR_ADD) {
     auto &PtrAdd = cast<GPtrAdd>(*Def);
@@ -832,10 +846,7 @@ bool LC2KInstructionSelector::selectCall(MachineInstr &I) const {
 
 bool LC2KInstructionSelector::selectAddrEs(MachineInstr &I) const {
   Register Dst = I.getOperand(0).getReg();
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
-                    Dst)
-                .addReg(LC2K::R0)
-                .add(I.getOperand(1)));
+  materializeSymbolAddress(Dst, I.getOperand(1), I);
   I.eraseFromParent();
   return true;
 }

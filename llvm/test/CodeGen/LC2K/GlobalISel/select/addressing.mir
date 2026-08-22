@@ -27,7 +27,7 @@ body:             |
     ; CHECK-LABEL: name: f
     ; A store directly to a frame index folds straight into SW's
     ; (frame-index, word-offset) operands.
-    ; CHECK: %1:gpr = ADDI $r0, @g
+    ; CHECK: %1:gpr = PSEUDO_LA $r0, @g
     ; CHECK: %4:gpr = ADDI $r0, 4
     ; A global-relative constant offset (@g + 1 word) is not folded into a
     ; single symbolic offset in v1: the G_PTR_ADD materializes its own
