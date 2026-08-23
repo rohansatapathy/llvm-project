@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/RuntimeLibcalls.h"
 #include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "lc2k-legalizer-info"
@@ -183,12 +184,19 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
       .legalFor({{s1, s32}})
       .customFor({{s32, s64}});
 
-  // Extending s1 to s32 is deferred to isel; extending s32 to s64 is
-  // custom-lowered by combining with 0 (ZEXT/ANYEXT) or arithmetic sign-shift
-  // (SEXT).
+  // Extending s1 to s32 is deferred to isel; extending to s64 (whether from
+  // s32 or straight from s1) is custom-lowered by combining with 0
+  // (ZEXT/ANYEXT) or arithmetic sign-shift (SEXT) -- see legalizeExt, which
+  // widens an s1 source to s32 first via the legal {s32, s1} case above.
   getActionDefinitionsBuilder({G_ZEXT, G_SEXT, G_ANYEXT})
       .legalFor({{s32, s1}})
-      .customFor({{s64, s32}});
+      .customFor({{s64, s32}, {s64, s1}});
+
+  // G_FREEZE has no corresponding LC2K instruction -- it's a pure IR/MIR
+  // concept (an arbitrary but well-defined value standing in for
+  // poison/undef) that's always a no-op copy at selection time, for any
+  // type LC2K actually has a register class for.
+  getActionDefinitionsBuilder(G_FREEZE).legalFor({s1, s32, p0});
 
   // No sub-word memory types exist on LC2K (see the s32-only note above),
   // and this target has no GISel combiner pipeline to fold shl+ashr pairs
@@ -425,16 +433,16 @@ bool LC2KLegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
 
 bool LC2KLegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
                                       LostDebugLocObserver &LocObserver) const {
-  const char *Name;
+  RTLIB::Libcall Libcall;
   switch (MI.getOpcode()) {
   case TargetOpcode::G_SHL:
-    Name = "__lc2k_shl";
+    Libcall = RTLIB::SHL_I32;
     break;
   case TargetOpcode::G_LSHR:
-    Name = "__lc2k_lshr";
+    Libcall = RTLIB::SRL_I32;
     break;
   case TargetOpcode::G_ASHR:
-    Name = "__lc2k_ashr";
+    Libcall = RTLIB::SRA_I32;
     break;
   default:
     llvm_unreachable("Unexpected opcode");
@@ -449,8 +457,8 @@ bool LC2KLegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
   // Unlike LegalizerHelper::libcall(), the Custom legalization action does
   // not erase MI on success automatically -- that's the custom
   // implementation's own responsibility.
-  if (Helper.createLibcall(Name, Result, Args, CallingConv::C, LocObserver,
-                           &MI) != LegalizerHelper::Legalized)
+  if (Helper.createLibcall(Libcall, Result, Args, LocObserver, &MI) !=
+      LegalizerHelper::Legalized)
     return false;
 
   MI.eraseFromParent();
@@ -499,8 +507,8 @@ bool LC2KLegalizerInfo::legalizeConstant(
   CallLowering::ArgInfo Result = {Shifted, S32Ty, 0};
   SmallVector<CallLowering::ArgInfo, 2> Args = {
       {HiConst.getReg(0), S32Ty, 0}, {ShiftAmt.getReg(0), S32Ty, 0}};
-  if (Helper.createLibcall("__lc2k_shl", Result, Args, CallingConv::C,
-                           LocObserver, &MI) != LegalizerHelper::Legalized)
+  if (Helper.createLibcall(RTLIB::SHL_I32, Result, Args, LocObserver, &MI) !=
+      LegalizerHelper::Legalized)
     return false;
 
   auto LoConst = MIRBuilder.buildConstant(S32, Lo);
@@ -520,45 +528,45 @@ bool LC2KLegalizerInfo::legalizeICmp(LegalizerHelper &Helper, MachineInstr &MI,
   if (Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE)
     return true;
 
-  const char *Name;
+  RTLIB::Libcall Libcall;
   Register LHS = Cmp.getLHSReg();
   Register RHS = Cmp.getRHSReg();
   bool Negate;
   switch (Pred) {
   case CmpInst::ICMP_SLT:
-    Name = "__lc2k_slt";
+    Libcall = RTLIB::LC2K_SLT;
     Negate = false;
     break;
   case CmpInst::ICMP_SGT:
-    Name = "__lc2k_slt";
+    Libcall = RTLIB::LC2K_SLT;
     std::swap(LHS, RHS);
     Negate = false;
     break;
   case CmpInst::ICMP_SLE:
-    Name = "__lc2k_slt";
+    Libcall = RTLIB::LC2K_SLT;
     std::swap(LHS, RHS);
     Negate = true;
     break;
   case CmpInst::ICMP_SGE:
-    Name = "__lc2k_slt";
+    Libcall = RTLIB::LC2K_SLT;
     Negate = true;
     break;
   case CmpInst::ICMP_ULT:
-    Name = "__lc2k_ult";
+    Libcall = RTLIB::LC2K_ULT;
     Negate = false;
     break;
   case CmpInst::ICMP_UGT:
-    Name = "__lc2k_ult";
+    Libcall = RTLIB::LC2K_ULT;
     std::swap(LHS, RHS);
     Negate = false;
     break;
   case CmpInst::ICMP_ULE:
-    Name = "__lc2k_ult";
+    Libcall = RTLIB::LC2K_ULT;
     std::swap(LHS, RHS);
     Negate = true;
     break;
   case CmpInst::ICMP_UGE:
-    Name = "__lc2k_ult";
+    Libcall = RTLIB::LC2K_ULT;
     Negate = true;
     break;
   default:
@@ -575,8 +583,8 @@ bool LC2KLegalizerInfo::legalizeICmp(LegalizerHelper &Helper, MachineInstr &MI,
   SmallVector<CallLowering::ArgInfo, 2> Args = {{LHS, S32Ty, 0},
                                                 {RHS, S32Ty, 0}};
 
-  if (Helper.createLibcall(Name, Result, Args, CallingConv::C, LocObserver,
-                           &MI) != LegalizerHelper::Legalized)
+  if (Helper.createLibcall(Libcall, Result, Args, LocObserver, &MI) !=
+      LegalizerHelper::Legalized)
     return false;
 
   Register FinalValue = CallResult;
@@ -594,12 +602,24 @@ bool LC2KLegalizerInfo::legalizeICmp(LegalizerHelper &Helper, MachineInstr &MI,
 bool LC2KLegalizerInfo::legalizeExt(LegalizerHelper &Helper,
                                     MachineInstr &MI) const {
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
   LLT S32 = LLT::scalar(32);
   Register Dst = MI.getOperand(0).getReg();
   Register Src = MI.getOperand(1).getReg();
+  unsigned Opc = MI.getOpcode();
+
+  // A source narrower than s32 (i.e. s1, from e.g. an i1->i64 zext/sext)
+  // needs widening to s32 first: {s32, s1} is legal (handled directly by
+  // instruction selection), but the merge below assumes both halves it's
+  // combining are already s32.
+  if (MRI.getType(Src) != S32) {
+    Register Widened = MRI.createGenericVirtualRegister(S32);
+    MIRBuilder.buildInstr(Opc, {Widened}, {Src});
+    Src = Widened;
+  }
 
   Register Hi;
-  if (MI.getOpcode() == TargetOpcode::G_SEXT) {
+  if (Opc == TargetOpcode::G_SEXT) {
     auto ShiftAmt = MIRBuilder.buildConstant(S32, 31);
     Hi = MIRBuilder.buildAShr(S32, Src, ShiftAmt).getReg(0);
   } else {
