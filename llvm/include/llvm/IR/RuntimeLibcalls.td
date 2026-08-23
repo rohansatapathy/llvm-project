@@ -2825,8 +2825,28 @@ def LanaiSystemLibrary
 
 def isLC2K : RuntimeLibcallPredicate<"TT.getArch() == Triple::lc2k">;
 
+// LC2K has no shift hardware; 32-bit shifts are synthesized by the GISel
+// legalizer as calls to LC2K-specific names for the existing SHL_I32/
+// SRL_I32/SRA_I32 libcalls, in place of the default __ashlsi3/__lshrsi3/
+// __ashrsi3 names.
+def __lc2k_shl : RuntimeLibcallImpl<SHL_I32>;
+def __lc2k_lshr : RuntimeLibcallImpl<SRL_I32>;
+def __lc2k_ashr : RuntimeLibcallImpl<SRA_I32>;
+
+// LC2K has no relational-compare hardware either, and there is no standard
+// integer less-than libcall family to reuse, so these are LC2K-specific
+// abstract ops.
+def LC2K_SLT : RuntimeLibcall;
+def LC2K_ULT : RuntimeLibcall;
+
+def __lc2k_slt : RuntimeLibcallImpl<LC2K_SLT>;
+def __lc2k_ult : RuntimeLibcallImpl<LC2K_ULT>;
+
 def LC2KSystemLibrary
-    : SystemRuntimeLibrary<isLC2K, (add DefaultRuntimeLibcallImpls)>;
+    : SystemRuntimeLibrary<isLC2K,
+    (add (sub DefaultRuntimeLibcallImpls,
+          __ashlsi3, __lshrsi3, __ashrsi3),
+     __lc2k_shl, __lc2k_lshr, __lc2k_ashr, __lc2k_slt, __lc2k_ult)>;
 
 //===----------------------------------------------------------------------===//
 // Mips16 Runtime Libcalls

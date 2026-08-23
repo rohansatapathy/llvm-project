@@ -825,6 +825,55 @@ set(hexagon_SOURCES
   ${GENERIC_TF_SOURCES}
 )
 
+set(lc2k_SOURCES
+  lc2k/ashr.S
+  lc2k/bitmasks.S
+  lc2k/bitmasks_inv.S
+  lc2k/lshr.S
+  lc2k/shl.S
+  lc2k/slt.S
+  lc2k/ult.S
+  ${GENERIC_SOURCES}
+)
+# LC2K has no native 16-bit type (CharWidth/ShortWidth are both 32, per its
+# word-addressable design) and no complex-number operations of its own, so
+# _Float16 and _Complex are outside what this target needs to support --
+# neither is required by ISO C (_Float16 isn't ISO C at all; _Complex is a
+# conditional C99/C11 feature). HasFloat16 is already false in LC2KTargetInfo
+# so no user code can reach the f16 conversion routines; excluding them here
+# just keeps them from being built at all. _Complex has no equivalent
+# target-level opt-out in Clang, so this does leave complex multiply/divide
+# as a link-time (not compile-time) gap if a user's code needs them.
+list(REMOVE_ITEM lc2k_SOURCES
+  divdc3.c
+  divsc3.c
+  extendhfsf2.c
+  extendhfdf2.c
+  muldc3.c
+  mulsc3.c
+  truncdfhf2.c
+  truncsfhf2.c
+)
+# LC2K is a freestanding/baremetal target with no OS, no libc, no exception
+# unwinding, and no thread-local storage of its own -- these have no
+# equivalent to build against, regardless of char width:
+#   - eprintf.c needs a hosted <stdio.h>
+#   - gcc_personality_v0.c needs libunwind's <unwind.h> (detected as present
+#     here only because HAVE_UNWIND_H reflects the host's headers, not
+#     lc2k-unknown-none's, which has none)
+#   - emutls.c/enable_execute_stack.c assume a real OS/ABI to emulate TLS or
+#     mark stack pages executable against
+list(REMOVE_ITEM lc2k_SOURCES
+  eprintf.c
+  gcc_personality_v0.c
+  emutls.c
+  enable_execute_stack.c
+)
+# GENERIC_TF_SOURCES (long double / __float128 support, including its own
+# complex routines) is entirely dead weight here: LC2K's LongDoubleWidth
+# equals DoubleWidth, so `long double` is just `double` and nothing ever
+# lowers to a TF-suffixed libcall.
+
 set(loongarch_SOURCES
   loongarch/fp_mode.c
   ${GENERIC_SOURCES}

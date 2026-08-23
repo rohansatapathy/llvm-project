@@ -172,6 +172,7 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
   switch (I.getOpcode()) {
   case TargetOpcode::G_PHI:
   case TargetOpcode::G_IMPLICIT_DEF:
+  case TargetOpcode::G_FREEZE:
     return selectGeneric(I);
   case TargetOpcode::G_CONSTANT:
     return selectConstant(I);
@@ -244,6 +245,15 @@ bool LC2KInstructionSelector::selectGeneric(MachineInstr &I) const {
   case TargetOpcode::G_IMPLICIT_DEF: {
     Register Dst = I.getOperand(0).getReg();
     I.setDesc(TII.get(TargetOpcode::IMPLICIT_DEF));
+    return RBI.constrainGenericRegister(Dst, LC2K::GPRRegClass, MRI) !=
+           nullptr;
+  }
+  case TargetOpcode::G_FREEZE: {
+    // No LC2K instruction corresponds to "freeze" -- it's a pure IR/MIR
+    // concept (an arbitrary but well-defined value standing in for
+    // poison/undef), so it's always a no-op copy at this point.
+    Register Dst = I.getOperand(0).getReg();
+    I.setDesc(TII.get(TargetOpcode::COPY));
     return RBI.constrainGenericRegister(Dst, LC2K::GPRRegClass, MRI) !=
            nullptr;
   }
