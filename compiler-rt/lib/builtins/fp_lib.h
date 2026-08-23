@@ -29,12 +29,20 @@
 
 #if defined SINGLE_PRECISION
 
+// half_rep_t/HALF_REP_C are only needed by fp_div_impl.inc's optional
+// half-width fast path (NUMBER_OF_HALF_ITERATIONS > 0); guard them on a
+// real 16-bit type existing, since some targets (e.g. LC2K, which is
+// word-addressable and has no sub-word types at all) have none, and every
+// current SINGLE_PRECISION caller either doesn't need this fast path or
+// disables it (NUMBER_OF_HALF_ITERATIONS 0) precisely for that reason.
+#ifdef __UINT16_TYPE__
 typedef uint16_t half_rep_t;
+#define HALF_REP_C UINT16_C
+#endif
 typedef uint32_t rep_t;
 typedef uint64_t twice_rep_t;
 typedef int32_t srep_t;
 typedef float fp_t;
-#define HALF_REP_C UINT16_C
 #define REP_C UINT32_C
 #define significandBits 23
 

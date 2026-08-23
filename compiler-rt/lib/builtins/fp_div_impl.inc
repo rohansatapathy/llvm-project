@@ -32,6 +32,11 @@
 #error At least one full iteration is required
 #endif
 
+#if NUMBER_OF_HALF_ITERATIONS > 0 && defined(SINGLE_PRECISION) &&            \
+    !defined(__UINT16_TYPE__)
+#error The half-width fast path needs a 16-bit integer type, which this target does not have
+#endif
+
 static __inline fp_t __divXf3__(fp_t a, fp_t b) {
 
   const unsigned int aExponent = toRep(a) >> significandBits & maxExponent;
