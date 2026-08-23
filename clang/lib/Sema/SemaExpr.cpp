@@ -3657,8 +3657,23 @@ ExprResult Sema::BuildPredefinedExpr(SourceLocation Loc,
       ResTy = Context.getConstantArrayType(ResTy, LengthI, nullptr,
                                            ArraySizeModifier::Normal,
                                            /*IndexTypeQuals*/ 0);
-      SL = StringLiteral::Create(Context, Str, StringLiteralKind::Ordinary,
-                                 /*Pascal*/ false, ResTy, Loc);
+      // StringLiteral's byte buffer must be packed at the target's actual
+      // `char` byte width (see StringLiteral::mapCharByteWidth); on most
+      // targets that's 1, so Str (one byte per source character) can be
+      // used directly, but on a target with a wider `char` (e.g. LC2K's
+      // 32-bit char) it needs the same repacking the wide-string case above
+      // already does.
+      unsigned CharByteWidth = Context.getTargetInfo().getCharWidth() / 8;
+      if (CharByteWidth == 1) {
+        SL = StringLiteral::Create(Context, Str, StringLiteralKind::Ordinary,
+                                   /*Pascal*/ false, ResTy, Loc);
+      } else {
+        SmallString<32> RawChars;
+        ConvertUTF8ToWideString(CharByteWidth, Str, RawChars);
+        SL = StringLiteral::Create(Context, RawChars,
+                                   StringLiteralKind::Ordinary,
+                                   /*Pascal*/ false, ResTy, Loc);
+      }
     }
   }
 

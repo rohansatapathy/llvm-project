@@ -2075,8 +2075,13 @@ void StringLiteralParser::init(ArrayRef<Token> StringToks){
 
   // TODO: K&R warning: "traditional C rejects string constant concatenation"
 
-  // Get the width in bytes of char/wchar_t/char16_t/char32_t
-  CharByteWidth = getCharWidth(Kind, Target);
+  // Get the width in bytes of char/wchar_t/char16_t/char32_t. An unevaluated
+  // string literal (e.g. an attribute argument or a static_assert message)
+  // is compiler-internal metadata, not target execution-character-set data,
+  // so it's always packed at the host's char width regardless of the
+  // target -- matching what StringLiteral::mapCharByteWidth reports for
+  // StringLiteralKind::Unevaluated (see its "// Host" case).
+  CharByteWidth = isUnevaluated() ? 8 : getCharWidth(Kind, Target);
   assert((CharByteWidth & 7) == 0 && "Assumes character size is byte multiple");
   CharByteWidth /= 8;
 
