@@ -830,6 +830,7 @@ set(lc2k_SOURCES
   lc2k/bitmasks.S
   lc2k/bitmasks_inv.S
   lc2k/lshr.S
+  lc2k/mulsi3.S
   lc2k/shl.S
   lc2k/slt.S
   lc2k/ult.S
