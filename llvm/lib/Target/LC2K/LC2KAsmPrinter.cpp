@@ -14,6 +14,7 @@
 #include "LC2KAsmPrinter.h"
 
 #include "LC2K.h"
+#include "LC2KInstrInfo.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -66,7 +67,13 @@ MCOperand LC2KAsmPrinter::lowerSymbolOperand(const MachineOperand &MO,
 void LC2KAsmPrinter::emitInstruction(const MachineInstr *MI) {
   MCInst Inst;
 
-  Inst.setOpcode(MI->getOpcode());
+  unsigned Opcode = MI->getOpcode();
+
+  // Collapse post-GISel-only BEQ_UNCOND to BEQ
+  if (Opcode == LC2K::BEQ_UNCOND)
+    Opcode = LC2K::BEQ;
+
+  Inst.setOpcode(Opcode);
 
   for (const MachineOperand &MO : MI->explicit_operands()) {
     MCOperand MCOp = lowerOperand(MO);
