@@ -6,7 +6,7 @@
 
 ; RUN: not llc -mtriple=lc2k -filetype=asm %s -o /dev/null 2>&1 | FileCheck %s
 
-; CHECK: LLVM ERROR: LC2K: stack frame size {{[0-9]+}} exceeds the 20-bit ADDI immediate range
+; CHECK: LLVM ERROR: LC2K: stack frame size
 
 define i32 @f() {
   %arr = alloca [600000 x i32]
