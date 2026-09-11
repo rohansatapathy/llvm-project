@@ -28,4 +28,4 @@ __mulsi3_loop	beq	3	0	__mulsi3_done
 	add		1	5	5
 __mulsi3_skip	beq	0	0	__mulsi3_loop
 __mulsi3_done	add	0	5	1
-	jalr	15	0
+	jalr	15	2

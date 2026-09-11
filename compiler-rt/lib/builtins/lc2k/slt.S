@@ -47,4 +47,4 @@ __lc2k_slt_loop	beq	4	0	__lc2k_slt_no
 __lc2k_slt_no	addi	0	1	0
 	jalr	15	0
 __lc2k_slt_yes	addi	0	1	1
-	jalr	15	0
+	jalr	15	2
