@@ -9,8 +9,8 @@ declare void @llvm.va_start.p0(ptr)
 ; that address into the va_list's own storage (%stack.0.ap here).
 ; CHECK-LABEL: name: f
 ; CHECK: %2:_(p0) = G_FRAME_INDEX %stack.0.ap
-; CHECK: %3:_(p0) = G_FRAME_INDEX %fixed-stack.0
-; CHECK: G_STORE %3(p0), %2(p0) :: (store (p0))
+; CHECK: %4:_(p0) = G_FRAME_INDEX %fixed-stack.0
+; CHECK: G_STORE %4(p0), %2(p0) :: (store (p0))
 define void @f(i32 %a, ...) {
 entry:
   %ap = alloca ptr, align 4

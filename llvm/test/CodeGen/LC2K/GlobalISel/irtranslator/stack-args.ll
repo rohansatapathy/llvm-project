@@ -9,7 +9,7 @@
 ; CHECK: %5:_(p0) = G_FRAME_INDEX %fixed-stack.0
 ; CHECK: %4:_(s32) = G_LOAD %5(p0) :: (load (s32) from %fixed-stack.0)
 ; CHECK: $r1 = COPY %4(s32)
-; CHECK: $r0 = JALR killed $r15, implicit $r1
+; CHECK: dead %6:gpr = JALR killed $r15, implicit $r1
 define i32 @f(i32 %a, i32 %b, i32 %c, i32 %d, i32 %e) {
   ret i32 %e
 }

@@ -11,7 +11,7 @@
 ; CHECK: %2:_(s32) = COPY $r3
 ; CHECK: %3:_(s32) = COPY $r4
 ; CHECK: $r1 = COPY %0(s32)
-; CHECK: $r0 = JALR killed $r15, implicit $r1
+; CHECK: dead %4:gpr = JALR killed $r15, implicit $r1
 define i32 @four_field_struct(%s4 %s) {
   %f0 = extractvalue %s4 %s, 0
   ret i32 %f0
@@ -31,7 +31,7 @@ define i32 @four_field_struct(%s4 %s) {
 ; CHECK: %5:_(s32) = G_LOAD %7(p0) :: (load (s32) from %fixed-stack.0)
 ; CHECK: %8:_(s32) = G_ADD %0, %5
 ; CHECK: $r1 = COPY %8(s32)
-; CHECK: $r0 = JALR killed $r15, implicit $r1
+; CHECK: dead %9:gpr = JALR killed $r15, implicit $r1
 define i32 @six_field_struct(%s6 %s) {
   %f0 = extractvalue %s6 %s, 0
   %f5 = extractvalue %s6 %s, 5

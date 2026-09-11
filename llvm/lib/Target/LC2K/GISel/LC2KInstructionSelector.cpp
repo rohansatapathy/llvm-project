@@ -366,13 +366,17 @@ bool LC2KInstructionSelector::selectJumpTable(MachineInstr &I) const {
 }
 
 bool LC2KInstructionSelector::selectBrIndirect(MachineInstr &I) const {
-  // Same "jump to regA, discard the return address into R0" shape as a
-  // plain return (see LC2KCallLowering::lowerReturn), but using JALR_IND
-  // instead of JALR so this isn't mistaken for a return -- see the
-  // JALR_IND comment in LC2KInstrInfo.td.
+  // Same "jump to regA, discard the return address" shape as a plain
+  // return (see LC2KCallLowering::lowerReturn), but using JALR_IND instead
+  // of JALR so this isn't mistaken for a return -- see the JALR_IND
+  // comment in LC2KInstrInfo.td. The discarded write goes to a fresh dead
+  // vreg rather than R0: R0 being zero is a software convention, not a
+  // hardware guarantee, so writing R0 directly would clobber it.
   Register Target = I.getOperand(0).getReg();
+  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
+  Register Discard = MRI.createVirtualRegister(&LC2K::GPRRegClass);
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::JALR_IND))
-                .addReg(LC2K::R0, RegState::Define)
+                .addReg(Discard, RegState::Define | RegState::Dead)
                 .addReg(Target));
   I.eraseFromParent();
   return true;
