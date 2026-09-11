@@ -201,12 +201,25 @@ bool LC2KCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
 
   // The discarded return-address write goes to a fresh dead vreg rather
   // than R0: R0 being zero is a software convention, not a hardware
-  // guarantee, so writing R0 directly would clobber it.
+  // guarantee, so writing R0 directly would clobber it. EarlyClobber is
+  // required too: this instruction also carries a non-killed implicit use
+  // of the ABI return-value register(s) (added below by the Handler) to
+  // mark them live out of the function. Without EarlyClobber, ordinary
+  // same-instruction use-before-def semantics let the allocator assign
+  // Discard to that same physical register -- its live range looks like it
+  // ends at this instruction's use, freeing it up for reuse by the def --
+  // even though the real return-address write and the real handoff of the
+  // return value to the caller happen at the same instant in hardware.
+  // EarlyClobber forces Discard's live range to start before this
+  // instruction's uses are read, so it's forced to avoid every operand on
+  // it, including those implicit return-value uses.
   Register Discard =
       MIRBuilder.getMRI()->createVirtualRegister(&LC2K::GPRRegClass);
-  MachineInstrBuilder Ret = MIRBuilder.buildInstrNoInsert(LC2K::JALR)
-                                .addReg(Discard, RegState::Define | RegState::Dead)
-                                .addReg(LC2K::RA, RegState::Kill);
+  MachineInstrBuilder Ret =
+      MIRBuilder.buildInstrNoInsert(LC2K::JALR)
+          .addReg(Discard, RegState::Define | RegState::Dead |
+                                RegState::EarlyClobber)
+          .addReg(LC2K::RA, RegState::Kill);
 
   if (!FLI.CanLowerReturn) {
     // Too many values to lower in registers alone. Return values are stored in

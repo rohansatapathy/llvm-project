@@ -15,7 +15,7 @@
 ; CHECK: %6:_(s8) = G_ADD %0, %1
 ; CHECK: %8:_(s32) = G_ZEXT %6(s8)
 ; CHECK: $r1 = COPY %8(s32)
-; CHECK: dead %7:gpr = JALR killed $r15, implicit $r1
+; CHECK: dead early-clobber %7:gpr = JALR killed $r15, implicit $r1
 define zeroext i8 @f(i8 zeroext %a, i8 signext %b) {
   %r = add i8 %a, %b
   ret i8 %r
