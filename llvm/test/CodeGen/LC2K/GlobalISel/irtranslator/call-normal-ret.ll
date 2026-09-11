@@ -12,7 +12,7 @@
 ; CHECK: ADJCALLSTACKUP 0, 0, implicit-def $r14, implicit $r14
 ; CHECK: %1:_(s32) = COPY $r1
 ; CHECK: $r1 = COPY %1(s32)
-; CHECK: $r0 = JALR killed $r15, implicit $r1
+; CHECK: dead %4:gpr = JALR killed $r15, implicit $r1
 define i32 @inc(i32 %x) {
   %r = add i32 %x, 1
   ret i32 %r

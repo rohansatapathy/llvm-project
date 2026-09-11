@@ -199,8 +199,13 @@ bool LC2KCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   assert(!SwiftErrorVReg && "attempt to use unsupported swifterror");
   assert(!Val == VRegs.empty() && "Return value without a vreg");
 
+  // The discarded return-address write goes to a fresh dead vreg rather
+  // than R0: R0 being zero is a software convention, not a hardware
+  // guarantee, so writing R0 directly would clobber it.
+  Register Discard =
+      MIRBuilder.getMRI()->createVirtualRegister(&LC2K::GPRRegClass);
   MachineInstrBuilder Ret = MIRBuilder.buildInstrNoInsert(LC2K::JALR)
-                                .addReg(LC2K::R0, RegState::Define)
+                                .addReg(Discard, RegState::Define | RegState::Dead)
                                 .addReg(LC2K::RA, RegState::Kill);
 
   if (!FLI.CanLowerReturn) {

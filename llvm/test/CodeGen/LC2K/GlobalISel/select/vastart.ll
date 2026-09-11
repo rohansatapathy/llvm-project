@@ -8,8 +8,8 @@ declare void @llvm.va_start.p0(ptr)
 ; directly into SW's addressing mode by appendAddrOperands rather than
 ; needing a separate address-materializing instruction.
 ; CHECK-LABEL: name: f
-; CHECK: %3:gpr = ADDI %fixed-stack.0, 0
-; CHECK: SW %3, %stack.0.ap, 0
+; CHECK: %4:gpr = ADDI %fixed-stack.0, 0
+; CHECK: SW %4, %stack.0.ap, 0
 define void @f(i32 %a, ...) {
 entry:
   %ap = alloca ptr, align 4
