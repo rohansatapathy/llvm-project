@@ -6,15 +6,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-def OffsetVT : VTInt<20>;  // NOTE: VTInt transitively included from Target.td
-
 def OffsetAsmOperand : AsmOperandClass {
   let Name = "Offset";
   let RenderMethod = "addOffsetOperands";
   let DiagnosticType = "InvalidOffset";
 }
 
-def LC2KOffset : Operand<OffsetVT> {
+// Declared as i32, not a synthetic 20-bit VT: the 20-bit truncation is
+// purely an encoding-time concern, handled by EncoderMethod/DecoderMethod
+// and the `bits<20> offset` field slicing in the instruction formats below.
+// A value type outside the registered MVT set (i1/i8/../i512, see
+// llvm/CodeGen/ValueTypes.td) can't be used in patterns -- CodeGenTarget's
+// getValueType() looks it up in a fixed StringSwitch over exactly those
+// registered names and has no fallback case, so passing it a record with
+// any other LLVMName (e.g. a from-scratch `VTInt<20>`) crashes tablegen the
+// moment any pattern (see the Pat<>s below) forces type inference over an
+// operand declared with it.
+def LC2KOffset : Operand<i32> {
   let ParserMatchClass = OffsetAsmOperand;
   let EncoderMethod = "getOffsetValue";
   let DecoderMethod = "decodeOffset";

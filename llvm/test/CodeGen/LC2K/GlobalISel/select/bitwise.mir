@@ -33,25 +33,36 @@ body:             |
   bb.0 (%ir-block.0):
     liveins: $r1, $r2
 
+    ; G_ADD/G_SUB/G_AND/G_OR/G_XOR are all selected via TableGen Pat<>s now
+    ; (see LC2KInstrInfo.td) rather than hand-written C++. G_OR and G_XOR's
+    ; patterns each reference their shared NOR/NAND subexpression twice in
+    ; the output tree, since a plain output Pat<> can't name and reuse a
+    ; single instance the way the old hand-written selectOr/selectXor did
+    ; -- so each is materialized twice here. A later MachineCSE pass (not
+    ; run by this single-pass test) merges the duplicates back down in a
+    ; full compile; see the identical instruction count in a full `llc`
+    ; run of the equivalent IR.
     ; CHECK-LABEL: name: f
     ; CHECK: %0:gpr = COPY $r1
     ; CHECK: %1:gpr = COPY $r2
     ; G_SUB: ~b via NOR(b,b), +1, then a + that.
-    ; CHECK: %15:gpr = NOR %1, %1
-    ; CHECK: %16:gpr = ADDI %15, 1
-    ; CHECK: %2:gpr = ADD %0, %16
+    ; CHECK: %17:gpr = NOR %1, %1
+    ; CHECK: %18:gpr = ADDI %17, 1
+    ; CHECK: %2:gpr = ADD %0, %18
     ; G_AND: De Morgan via NOR.
-    ; CHECK: %13:gpr = NOR %0, %0
-    ; CHECK: %14:gpr = NOR %1, %1
-    ; CHECK: %3:gpr = NOR %13, %14
-    ; G_OR: NOT(NOR(a,b)).
-    ; CHECK: %12:gpr = NOR %0, %1
-    ; CHECK: %4:gpr = NOR %12, %12
-    ; G_XOR: classic 4-NAND circuit.
+    ; CHECK: %15:gpr = NOR %1, %1
+    ; CHECK: %16:gpr = NOR %0, %0
+    ; CHECK: %3:gpr = NOR %16, %15
+    ; G_OR: NOT(NOR(a,b)), NOR(a,b) computed twice (see comment above).
+    ; CHECK: %13:gpr = NOR %0, %1
+    ; CHECK: %14:gpr = NOR %0, %1
+    ; CHECK: %4:gpr = NOR %14, %13
+    ; G_XOR: classic 4-NAND circuit, NAND(a,b) computed twice likewise.
     ; CHECK: %9:gpr = NAND %0, %1
-    ; CHECK: %10:gpr = NAND %0, %9
-    ; CHECK: %11:gpr = NAND %1, %9
-    ; CHECK: %5:gpr = NAND %10, %11
+    ; CHECK: %10:gpr = NAND %1, %9
+    ; CHECK: %11:gpr = NAND %0, %1
+    ; CHECK: %12:gpr = NAND %0, %11
+    ; CHECK: %5:gpr = NAND %12, %10
     ; CHECK: %6:gpr = ADD %2, %3
     ; CHECK: %7:gpr = ADD %4, %5
     ; CHECK: %8:gpr = ADD %6, %7
