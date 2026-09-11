@@ -8,4 +8,4 @@ __lc2k_shl_loop beq		3	2	__lc2k_shl_end
 	add		1	1	1
 	addi	3	3	1
 	beq		0	0	__lc2k_shl_loop
-__lc2k_shl_end	jalr	15	0
+__lc2k_shl_end	jalr	15	2

@@ -29,4 +29,4 @@ __lc2k_ashr_loop	beq	3	2	__lc2k_ashr_done
 	addi	4	4	1
 __lc2k_ashr_skip	beq	0	0	__lc2k_ashr_loop
 __lc2k_ashr_done	add	0	4	1
-	jalr	15	0
+	jalr	15	2

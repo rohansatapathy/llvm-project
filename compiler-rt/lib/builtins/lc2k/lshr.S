@@ -22,4 +22,4 @@ __lc2k_lshr_loop	beq	3	2	__lc2k_lshr_done
 	addi	4	4	1
 __lc2k_lshr_skip	beq	0	0	__lc2k_lshr_loop
 __lc2k_lshr_done	add	0	4	1
-	jalr	15	0
+	jalr	15	2
