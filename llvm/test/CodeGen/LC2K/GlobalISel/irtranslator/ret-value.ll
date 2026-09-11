@@ -3,7 +3,7 @@
 ; CHECK: name: f
 ; CHECK: %0:_(s32) = G_CONSTANT i32 42
 ; CHECK: $r1 = COPY %0(s32)
-; CHECK: dead %1:gpr = JALR killed $r15, implicit $r1
+; CHECK: dead early-clobber %1:gpr = JALR killed $r15, implicit $r1
 define i32 @f() {
   ret i32 42
 }

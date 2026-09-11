@@ -6,7 +6,7 @@
 ; CHECK: %1:_(s32) = COPY $r2
 ; CHECK: %2:_(s32) = G_ADD %0, %1
 ; CHECK: $r1 = COPY %2(s32)
-; CHECK: dead %3:gpr = JALR killed $r15, implicit $r1
+; CHECK: dead early-clobber %3:gpr = JALR killed $r15, implicit $r1
 define i32 @f(i32 %a, i32 %b) {
   %sum = add i32 %a, %b
   ret i32 %sum

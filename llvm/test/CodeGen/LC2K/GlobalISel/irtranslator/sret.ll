@@ -23,7 +23,7 @@
 ; CHECK: %11:_(s32) = G_CONSTANT i32 3
 ; CHECK: %10:_(p0) = nuw inbounds G_PTR_ADD %0, %11(s32)
 ; CHECK: G_STORE %4(s32), %10(p0) :: (store (s32), align 1)
-; CHECK: dead %5:gpr = JALR killed $r15
+; CHECK: dead early-clobber %5:gpr = JALR killed $r15
 define %s4 @inner() {
   ret %s4 { i32 1, i32 2, i32 3, i32 4 }
 }
@@ -43,7 +43,7 @@ define %s4 @inner() {
 ; CHECK: ADJCALLSTACKUP 0, 0, implicit-def $r14, implicit $r14
 ; CHECK: %0:_(s32) = G_LOAD %4(p0) :: (load (s32) from %stack.0, align 1)
 ; CHECK: $r1 = COPY %0(s32)
-; CHECK: dead %13:gpr = JALR killed $r15, implicit $r1
+; CHECK: dead early-clobber %13:gpr = JALR killed $r15, implicit $r1
 define i32 @outer() {
   %s = call %s4 @inner()
   %f0 = extractvalue %s4 %s, 0

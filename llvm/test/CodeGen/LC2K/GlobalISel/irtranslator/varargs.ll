@@ -14,7 +14,7 @@
 ; CHECK-LABEL: name: void_ret
 ; CHECK: %1:_(p0) = G_FRAME_INDEX %fixed-stack.1
 ; CHECK: %0:_(s32) = G_LOAD %1(p0) :: (load (s32) from %fixed-stack.1)
-; CHECK: dead %2:gpr = JALR killed $r15
+; CHECK: dead early-clobber %2:gpr = JALR killed $r15
 define void @void_ret(i32 %a, ...) {
   ret void
 }
@@ -28,7 +28,7 @@ define void @void_ret(i32 %a, ...) {
 ; CHECK: %1:_(p0) = G_FRAME_INDEX %fixed-stack.1
 ; CHECK: %0:_(s32) = G_LOAD %1(p0) :: (load (s32) from %fixed-stack.1)
 ; CHECK: $r1 = COPY %0(s32)
-; CHECK: dead %2:gpr = JALR killed $r15, implicit $r1
+; CHECK: dead early-clobber %2:gpr = JALR killed $r15, implicit $r1
 define i32 @i32_ret(i32 %a, ...) {
   ret i32 %a
 }
