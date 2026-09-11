@@ -10,11 +10,26 @@
 /// This file implements the targeting of the InstructionSelector class for
 /// LC2K.
 ///
-/// LC2K has no TableGen selection patterns anywhere (see LC2KInstrInfo.td):
-/// the instruction set is tiny (ADD/NOR/NAND/LW/SW/ADDI/BEQ/JALR) and most
-/// generic ops the legalizer leaves "legal" (G_SUB/G_AND/G_OR/G_XOR,
-/// G_BRCOND, G_SELECT, G_ICMP eq/ne) have no 1:1 hardware equivalent, so this
-/// selector is entirely hand-written.
+/// The fixed-shape arithmetic/logic ops (G_ADD/G_SUB/G_AND/G_OR/G_XOR) are
+/// selected via plain TableGen Pat<>s in LC2KInstrInfo.td, since each always
+/// lowers to the same static instruction sequence regardless of operand
+/// values. Everything else here is hand-written, for reasons that don't
+/// reduce to a static per-instruction pattern:
+///  - G_ICMP/G_SELECT need real control flow (no compare-into-register or
+///    conditional-move hardware) that's unsafe to build mid-traversal of
+///    the CFG inside InstructionSelect (see selectICmp/selectSelect), and
+///    (separately) have no distinct boolean type/register class for
+///    GlobalISel's pattern importer to type-check an s1 operand against
+///    (LC2K's s1 values just live in a full GPR -- see PSEUDO_CMP01).
+///  - G_BRCOND/G_BR inspect and mutate a *sibling* terminator (fusing an
+///    adjacent G_ICMP, redirecting the fallthrough branch), which a
+///    single-instruction Pat<> can't express.
+///  - G_FRAME_INDEX/G_GLOBAL_VALUE/G_JUMP_TABLE, load/store addressing, and
+///    G_PTR_ADD fold multiple defining instructions' operands together by
+///    walking MachineRegisterInfo, which needs a GIComplexOperandMatcher,
+///    not a plain Pat<>; constant materialization is runtime-value-shaped
+///    (bit-serial doubling), which no static pattern can represent; and
+///    G_CALL's implicit operand list is variadic.
 ///
 /// Pointer values held in GPRs are LC2K *word* addresses. LC2K's memory is
 /// only word-addressable, and the DataLayout declares a 32-bit byte (b:32),
@@ -66,11 +81,6 @@ private:
   bool selectGeneric(MachineInstr &I) const;
   bool selectConstant(MachineInstr &I) const;
   bool selectFConstant(MachineInstr &I) const;
-  bool selectAdd(MachineInstr &I) const;
-  bool selectSub(MachineInstr &I) const;
-  bool selectAnd(MachineInstr &I) const;
-  bool selectOr(MachineInstr &I) const;
-  bool selectXor(MachineInstr &I) const;
   bool selectFrameIndex(MachineInstr &I) const;
   bool selectGlobalValue(MachineInstr &I) const;
   bool selectJumpTable(MachineInstr &I) const;
@@ -178,16 +188,6 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectConstant(I);
   case TargetOpcode::G_FCONSTANT:
     return selectFConstant(I);
-  case TargetOpcode::G_ADD:
-    return selectAdd(I);
-  case TargetOpcode::G_SUB:
-    return selectSub(I);
-  case TargetOpcode::G_AND:
-    return selectAnd(I);
-  case TargetOpcode::G_OR:
-    return selectOr(I);
-  case TargetOpcode::G_XOR:
-    return selectXor(I);
   case TargetOpcode::G_FRAME_INDEX:
     return selectFrameIndex(I);
   case TargetOpcode::G_GLOBAL_VALUE:
@@ -323,115 +323,6 @@ bool LC2KInstructionSelector::selectFConstant(MachineInstr &I) const {
   const APInt Bits =
       I.getOperand(1).getFPImm()->getValueAPF().bitcastToAPInt();
   materializeConstant(Dst, Bits.getZExtValue(), I);
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectAdd(MachineInstr &I) const {
-  Register Dst = I.getOperand(0).getReg();
-  Register LHS = I.getOperand(1).getReg();
-  Register RHS = I.getOperand(2).getReg();
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADD),
-                    Dst)
-                .addReg(LHS)
-                .addReg(RHS));
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectSub(MachineInstr &I) const {
-  MachineBasicBlock &MBB = *I.getParent();
-  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
-  DebugLoc DL = I.getDebugLoc();
-  Register Dst = I.getOperand(0).getReg();
-  Register LHS = I.getOperand(1).getReg();
-  Register RHS = I.getOperand(2).getReg();
-
-  // a - b == a + (~b + 1); ~b via NOR(b,b).
-  Register NotRHS = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  Register NegRHS = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), NotRHS)
-                .addReg(RHS)
-                .addReg(RHS));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::ADDI), NegRHS)
-                .addReg(NotRHS)
-                .addImm(1));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::ADD), Dst)
-                .addReg(LHS)
-                .addReg(NegRHS));
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectAnd(MachineInstr &I) const {
-  MachineBasicBlock &MBB = *I.getParent();
-  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
-  DebugLoc DL = I.getDebugLoc();
-  Register Dst = I.getOperand(0).getReg();
-  Register LHS = I.getOperand(1).getReg();
-  Register RHS = I.getOperand(2).getReg();
-
-  // De Morgan: a & b == NOR(~a, ~b).
-  Register NotLHS = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  Register NotRHS = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), NotLHS)
-                .addReg(LHS)
-                .addReg(LHS));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), NotRHS)
-                .addReg(RHS)
-                .addReg(RHS));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), Dst)
-                .addReg(NotLHS)
-                .addReg(NotRHS));
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectOr(MachineInstr &I) const {
-  MachineBasicBlock &MBB = *I.getParent();
-  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
-  DebugLoc DL = I.getDebugLoc();
-  Register Dst = I.getOperand(0).getReg();
-  Register LHS = I.getOperand(1).getReg();
-  Register RHS = I.getOperand(2).getReg();
-
-  // a | b == NOT(NOR(a,b)) == NOR(NOR(a,b), NOR(a,b)).
-  Register NorLR = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), NorLR)
-                .addReg(LHS)
-                .addReg(RHS));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), Dst)
-                .addReg(NorLR)
-                .addReg(NorLR));
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectXor(MachineInstr &I) const {
-  MachineBasicBlock &MBB = *I.getParent();
-  MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
-  DebugLoc DL = I.getDebugLoc();
-  Register Dst = I.getOperand(0).getReg();
-  Register LHS = I.getOperand(1).getReg();
-  Register RHS = I.getOperand(2).getReg();
-
-  // Classic 4-NAND XOR circuit -- the reason NAND exists as a real LC2K
-  // instruction despite never being referenced by the legalizer.
-  Register N1 = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  Register N2 = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  Register N3 = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NAND), N1)
-                .addReg(LHS)
-                .addReg(RHS));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NAND), N2)
-                .addReg(LHS)
-                .addReg(N1));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NAND), N3)
-                .addReg(RHS)
-                .addReg(N1));
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NAND), Dst)
-                .addReg(N2)
-                .addReg(N3));
   I.eraseFromParent();
   return true;
 }

@@ -138,3 +138,25 @@ def PSEUDO_SELECT : LC2KPseudo<(outs GPR:$dst),
 def PSEUDO_CMP01 : LC2KPseudo<(outs GPR:$dst),
                               (ins GPR:$lhs, GPR:$rhs, i32imm:$isEq)>;
 
+//===----------------------------------------------------------------------===//
+// GlobalISel selection patterns
+//===----------------------------------------------------------------------===//
+
+def : Pat<(add GPR:$lhs, GPR:$rhs), (ADD GPR:$lhs, GPR:$rhs)>;
+
+// a - b == a + (~b + 1); ~b via NOR(b,b).
+def : Pat<(sub GPR:$lhs, GPR:$rhs),
+          (ADD GPR:$lhs, (ADDI (NOR GPR:$rhs, GPR:$rhs), 1))>;
+
+// De Morgan: a & b == NOR(~a, ~b).
+def : Pat<(and GPR:$lhs, GPR:$rhs),
+          (NOR (NOR GPR:$lhs, GPR:$lhs), (NOR GPR:$rhs, GPR:$rhs))>;
+
+// a | b == NOT(NOR(a,b)) == NOR(NOR(a,b), NOR(a,b)).
+def : Pat<(or GPR:$lhs, GPR:$rhs),
+          (NOR (NOR GPR:$lhs, GPR:$rhs), (NOR GPR:$lhs, GPR:$rhs))>;
+
+// a ^ b = (a NAND ~a) NAND (b NAND ~b)
+def : Pat<(xor GPR:$lhs, GPR:$rhs),
+          (NAND (NAND GPR:$lhs, (NAND GPR:$lhs, GPR:$rhs)),
+                (NAND GPR:$rhs, (NAND GPR:$lhs, GPR:$rhs)))>;
