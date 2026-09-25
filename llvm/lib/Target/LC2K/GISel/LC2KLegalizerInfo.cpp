@@ -53,7 +53,7 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   // never inspects Dst's LLT, just materializes the bit pattern into
   // whatever GPR Dst gets constrained to.
   // Values that fit a single ADDI immediate stay legal (see
-  // materializeConstant); wider s32 values are split by legalizeConstant
+  // selectConstant); wider s32 values are split by legalizeConstant
   // below into a 12-bit high half shifted into position via the __lc2k_shl
   // libcall (see legalizeShift) plus a 20-bit low half, since LC2K has no
   // shift hardware to build them bit-serially inline. p0 is left alone: a
@@ -346,13 +346,14 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
                      LegalizeMutations::changeTo(0, s32))
       .lower();
 
-  // G_FCONSTANT at s32 is materialized directly (see selectFConstant);
-  // G_FCONSTANT at s64 is custom-lowered to two 32-bit constants merged;
-  // G_FCONSTANT at s16 is widened (preserving its exact bit pattern) to a
-  // 32-bit materialization that's then truncated back down.
+  // G_FCONSTANT at s32 is custom-lowered to a G_CONSTANT of its bit pattern,
+  // so wide values reuse legalizeConstant's __lc2k_shl split instead of
+  // being built bit-by-bit in the selector; G_FCONSTANT at s64 is
+  // custom-lowered to two 32-bit constants merged; G_FCONSTANT at s16 is
+  // widened (preserving its exact bit pattern) to a 32-bit materialization
+  // that's then truncated back down.
   getActionDefinitionsBuilder(G_FCONSTANT)
-      .legalFor({s32})
-      .customFor({s64})
+      .customFor({s32, s64})
       .clampScalar(0, s32, s32);
 
   // Soft-float arithmetic, remainder, and comparisons: only s32/s64 have
@@ -470,7 +471,7 @@ bool LC2KLegalizerInfo::legalizeConstant(
     LostDebugLocObserver &LocObserver) const {
   int64_t Val = MI.getOperand(1).getCImm()->getSExtValue();
 
-  // Already a single ADDI in the selector (see materializeConstant) --
+  // Already a single ADDI in the selector (see selectConstant) --
   // nothing to do.
   if (isInt<20>(Val))
     return true;
@@ -682,6 +683,14 @@ bool LC2KLegalizerInfo::legalizeFConstant(LegalizerHelper &Helper,
   const ConstantFP *CFP = MI.getOperand(1).getFPImm();
   APInt Bits = CFP->getValueAPF().bitcastToAPInt();
   LLT S32 = LLT::scalar(32);
+  // LC2K's s32 LLT doesn't distinguish int from float, so an s32 float
+  // constant is just an integer constant of the same bits. The new
+  // G_CONSTANT re-enters legalization and hits legalizeConstant.
+  if (Bits.getBitWidth() == 32) {
+    MIRBuilder.buildConstant(Dst, Bits.getZExtValue());
+    MI.eraseFromParent();
+    return true;
+  }
   auto Lo =
       MIRBuilder.buildConstant(S32, Bits.extractBits(32, 0).getZExtValue());
   auto Hi =

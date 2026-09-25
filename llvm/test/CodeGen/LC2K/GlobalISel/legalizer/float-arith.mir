@@ -5,9 +5,10 @@
 # G_FREM and the FP<->int conversions route to the standard compiler-rt/
 # libgcc soft-float symbols via libcallFor, G_FCMP likewise (its EQ
 # predicate here maps to __eqsf2 plus an == 0 G_ICMP), and G_FCONSTANT is
-# left legal since a float's bit pattern is materialized the same
-# memory-free way as G_CONSTANT (see selectFConstant in
-# LC2KInstructionSelector.cpp).
+# rewritten into a G_CONSTANT of the same bit pattern, which then goes
+# through legalizeConstant like any other integer constant: a single legal
+# G_CONSTANT if it fits an ADDI immediate, otherwise a __lc2k_shl(hi, 20)
+# libcall plus a low-half G_ADD.
 
 --- |
   define void @fadd() { ret void }
@@ -21,6 +22,7 @@
   define void @sitofp() { ret void }
   define void @uitofp() { ret void }
   define void @fconstant() { ret void }
+  define void @fconstant_small() { ret void }
 ...
 ---
 name:            fadd
@@ -240,10 +242,43 @@ registers:
 body:             |
   bb.0:
 
+    ; 1.0f is 0x3F800000: too wide for ADDI, so it's split into
+    ; (0x3F8 << 20) + 0.
     ; CHECK-LABEL: name: fconstant
     ; CHECK: legalized: true
-    ; CHECK: %0:_(s32) = G_FCONSTANT float 1.000000e+00
+    ; CHECK-NOT: G_FCONSTANT
+    ; CHECK: [[HI:%[0-9]+]]:_(s32) = G_CONSTANT i32 1016
+    ; CHECK: [[AMT:%[0-9]+]]:_(s32) = G_CONSTANT i32 20
+    ; CHECK: ADDR_ES &__lc2k_shl
+    ; CHECK: $r1 = COPY [[HI]](s32)
+    ; CHECK: $r2 = COPY [[AMT]](s32)
+    ; CHECK: CALL
+    ; CHECK: [[SHIFTED:%[0-9]+]]:_(s32) = COPY $r1
+    ; CHECK: [[LO:%[0-9]+]]:_(s32) = G_CONSTANT i32 0
+    ; CHECK: %0:_(s32) = G_ADD [[SHIFTED]], [[LO]]
+    ; CHECK-NOT: G_FCONSTANT
     %0:_(s32) = G_FCONSTANT float 1.0
+    $r1 = COPY %0(s32)
+    $r0 = JALR killed $r15, implicit $r1
+...
+---
+name:            fconstant_small
+legalized:       false
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: _ }
+body:             |
+  bb.0:
+
+    ; The smallest positive denormal is bit pattern 0x00000001, which fits
+    ; an ADDI immediate, so it becomes a single legal G_CONSTANT with no
+    ; libcall.
+    ; CHECK-LABEL: name: fconstant_small
+    ; CHECK: legalized: true
+    ; CHECK-NOT: __lc2k_shl
+    ; CHECK: %0:_(s32) = G_CONSTANT i32 1
+    ; CHECK-NEXT: $r1 = COPY %0(s32)
+    %0:_(s32) = G_FCONSTANT float 0x36A0000000000000
     $r1 = COPY %0(s32)
     $r0 = JALR killed $r15, implicit $r1
 ...
