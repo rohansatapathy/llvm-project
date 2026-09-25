@@ -160,3 +160,6 @@ def : Pat<(or GPR:$lhs, GPR:$rhs),
 def : Pat<(xor GPR:$lhs, GPR:$rhs),
           (NAND (NAND GPR:$lhs, (NAND GPR:$lhs, GPR:$rhs)),
                 (NAND GPR:$rhs, (NAND GPR:$lhs, GPR:$rhs)))>;
+
+// ~(a | b) = a NOR b
+def : Pat<(not (or GPR:$lhs, GPR:$rhs)), (NOR GPR:$lhs, GPR:$rhs)>;
