@@ -27,9 +27,7 @@
 ///  - G_FRAME_INDEX/G_GLOBAL_VALUE/G_JUMP_TABLE, load/store addressing, and
 ///    G_PTR_ADD fold multiple defining instructions' operands together by
 ///    walking MachineRegisterInfo, which needs a GIComplexOperandMatcher,
-///    not a plain Pat<>; constant materialization is runtime-value-shaped
-///    (bit-serial doubling), which no static pattern can represent; and
-///    G_CALL's implicit operand list is variadic.
+///    not a plain Pat<>; and G_CALL's implicit operand list is variadic.
 ///
 /// Pointer values held in GPRs are LC2K *word* addresses. LC2K's memory is
 /// only word-addressable, and the DataLayout declares a 32-bit byte (b:32),
@@ -80,7 +78,6 @@ private:
 
   bool selectGeneric(MachineInstr &I) const;
   bool selectConstant(MachineInstr &I) const;
-  bool selectFConstant(MachineInstr &I) const;
   bool selectFrameIndex(MachineInstr &I) const;
   bool selectGlobalValue(MachineInstr &I) const;
   bool selectJumpTable(MachineInstr &I) const;
@@ -97,14 +94,6 @@ private:
   bool selectPtrIntCast(MachineInstr &I) const;
   bool selectCall(MachineInstr &I) const;
   bool selectAddrEs(MachineInstr &I) const;
-
-  /// Materializes an arbitrary 32-bit constant into Dst, inserted just
-  /// before Before. Values that fit the 20-bit ADDI immediate become a
-  /// single ADDI; wider values are built bit-serially via doubling (ADD
-  /// acc,acc,acc) and conditionally incrementing (ADDI acc,acc,1), since
-  /// LC2K has no shift hardware.
-  void materializeConstant(Register Dst, int64_t Val,
-                           MachineInstr &Before) const;
 
   /// Appends the (base, offset) operand pair used by LW/SW/ADDI-style
   /// addressing for a pointer value held in PtrReg, folding a directly
@@ -186,8 +175,6 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectGeneric(I);
   case TargetOpcode::G_CONSTANT:
     return selectConstant(I);
-  case TargetOpcode::G_FCONSTANT:
-    return selectFConstant(I);
   case TargetOpcode::G_FRAME_INDEX:
     return selectFrameIndex(I);
   case TargetOpcode::G_GLOBAL_VALUE:
@@ -262,67 +249,18 @@ bool LC2KInstructionSelector::selectGeneric(MachineInstr &I) const {
   }
 }
 
-void LC2KInstructionSelector::materializeConstant(Register Dst, int64_t Val,
-                                                  MachineInstr &Before) const {
-  MachineBasicBlock &MBB = *Before.getParent();
-  MachineRegisterInfo &MRI = Before.getMF()->getRegInfo();
-  DebugLoc DL = Before.getDebugLoc();
-
-  if (isInt<20>(Val)) {
-    constrain(BuildMI(MBB, Before, DL, TII.get(LC2K::ADDI), Dst)
-                  .addReg(LC2K::R0)
-                  .addImm(Val));
-    return;
-  }
-
-  // No shift hardware exists, so build the value bit-serially: double the
-  // running accumulator (ADD acc,acc,acc) for every bit of the 32-bit
-  // pattern from MSB to LSB, incrementing (ADDI acc,acc,1) whenever that
-  // bit is set. Exact mod-2^32 arithmetic, so this works for negative
-  // values too.
-  uint32_t Bits = static_cast<uint32_t>(Val);
-  int Highest = Log2_32(Bits);
-  Register Acc = LC2K::R0;
-  for (int Bit = Highest; Bit >= 0; --Bit) {
-    Register Doubled = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-    constrain(BuildMI(MBB, Before, DL, TII.get(LC2K::ADD), Doubled)
-                  .addReg(Acc)
-                  .addReg(Acc));
-    Acc = Doubled;
-
-    if (Bits & (1u << Bit)) {
-      Register Next = (Bit == 0) ? Dst : MRI.createVirtualRegister(&LC2K::GPRRegClass);
-      constrain(BuildMI(MBB, Before, DL, TII.get(LC2K::ADDI), Next)
-                    .addReg(Acc)
-                    .addImm(1));
-      Acc = Next;
-    }
-  }
-
-  if (Acc != Dst)
-    constrain(BuildMI(MBB, Before, DL, TII.get(LC2K::ADD), Dst)
-                  .addReg(Acc)
-                  .addReg(LC2K::R0));
-}
-
 bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
   Register Dst = I.getOperand(0).getReg();
   int64_t Val = I.getOperand(1).getCImm()->getSExtValue();
-  materializeConstant(Dst, Val, I);
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectFConstant(MachineInstr &I) const {
-  // A float constant is just its IEEE-754 bit pattern materialized the same
-  // memory-free way as an integer constant -- LC2K has no constant-pool
-  // support (see the G_FCONSTANT legalizer rule), and doesn't need any,
-  // since the same materializeConstant sequence works regardless of how
-  // the bits are meant to be interpreted downstream.
-  Register Dst = I.getOperand(0).getReg();
-  const APInt Bits =
-      I.getOperand(1).getFPImm()->getValueAPF().bitcastToAPInt();
-  materializeConstant(Dst, Bits.getZExtValue(), I);
+  // Wider values (and every G_FCONSTANT) are rewritten by
+  // LC2KLegalizerInfo::legalizeConstant/legalizeFConstant before selection,
+  // so only ADDI-sized integer constants get here.
+  assert(isInt<20>(Val) &&
+         "wide constants should have been split by the legalizer");
+  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
+                    Dst)
+                .addReg(LC2K::R0)
+                .addImm(Val));
   I.eraseFromParent();
   return true;
 }
@@ -401,21 +339,16 @@ bool LC2KInstructionSelector::selectPtrAdd(MachineInstr &I) const {
     return true;
   }
 
+  // A constant offset is always a legal (ADDI-sized) G_CONSTANT by now: wider
+  // ones were split by LC2KLegalizerInfo::legalizeConstant and so take the
+  // non-constant path above.
   int64_t WordOff = *Cst;
-
-  if (isInt<20>(WordOff)) {
-    constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
-                      Dst)
-                  .addReg(Base)
-                  .addImm(WordOff));
-  } else {
-    Register Tmp = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-    materializeConstant(Tmp, WordOff, I);
-    constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADD),
-                      Dst)
-                  .addReg(Base)
-                  .addReg(Tmp));
-  }
+  assert(isInt<20>(WordOff) &&
+         "wide constants should have been split by the legalizer");
+  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
+                    Dst)
+                .addReg(Base)
+                .addImm(WordOff));
   I.eraseFromParent();
   return true;
 }
