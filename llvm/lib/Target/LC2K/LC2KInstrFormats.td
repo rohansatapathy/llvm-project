@@ -28,6 +28,15 @@ def LC2KOffset : Operand<i32> {
   let DecoderMethod = "decodeOffset";
 }
 
+// ValueType for branch target is a basic block name, which pattern matches 
+// as OtherVT instead of i32 during instruction selection. Therefore, we need 
+// a separate type to represent this argument.
+def LC2KBrTarget : Operand<OtherVT> {
+  let ParserMatchClass = OffsetAsmOperand;
+  let EncoderMethod = "getOffsetValue";
+  let DecoderMethod = "decodeOffset";
+}
+
 class LC2KOpcode<string name, bits<4> value> {
   string Name = name;
   bits<4> Value = value;
@@ -86,8 +95,8 @@ class LC2KInstITypeWriteReg<LC2KOpcode opcode> :
 // IMPORTANT: regA comes after regB in the ins definition so that when
 // doing FrameIndex elimination, the base and offset are in the same place
 // within the MachineInstr.
-class LC2KInstITypeReadOnly<LC2KOpcode opcode> : 
-  LC2KInst<(outs), (ins GPR:$regB, GPR:$regA, LC2KOffset:$offset)> {
+class LC2KInstITypeReadOnly<LC2KOpcode opcode, Operand offsetOp = LC2KOffset> :
+  LC2KInst<(outs), (ins GPR:$regB, GPR:$regA, offsetOp:$offset)> {
   bits<4> regA;
   bits<4> regB;
   bits<20> offset;
