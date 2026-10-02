@@ -47,13 +47,13 @@ def ADDI  : LC2KInstITypeWriteReg<OPC_ADDI>;
 }  // isAdd = true
 
 let isBranch = true, isTerminator = true in {
-def BEQ   : LC2KInstITypeReadOnly<OPC_BEQ>;
+def BEQ   : LC2KInstITypeReadOnly<OPC_BEQ, LC2KBrTarget>;
 }  // isBranch = true, isTerminator = true
 
 // This is equivalent to "beq 0 0 <target>"; need version with isBarrier set
 // for branch analysis.
 let isBranch = true, isTerminator = true, isBarrier = true, isCodeGenOnly = 1 in
-def BEQ_UNCOND : LC2KInstITypeReadOnly<OPC_BEQ>;
+def BEQ_UNCOND : LC2KInstITypeReadOnly<OPC_BEQ, LC2KBrTarget>;
 
 // JALR is only built directly for a a return (CALL is a separate pseudo).
 let isIndirectBranch = true, isTerminator = true, isReturn = true in {
@@ -141,6 +141,26 @@ def PSEUDO_CMP01 : LC2KPseudo<(outs GPR:$dst),
 //===----------------------------------------------------------------------===//
 // GlobalISel selection patterns
 //===----------------------------------------------------------------------===//
+
+def simm20 : ImmLeaf<i32, [{ return isInt<20>(Imm); }]>;
+
+// Wider constants are split by LC2KLegalizerInfo::legalizeConstant before
+// selection. p0 constants (null pointers) fail this pattern's s32 type check
+// and are handled by selectConstant instead.
+def : Pat<(i32 simm20:$imm), (ADDI (i32 R0), simm20:$imm)>;
+
+// From RISC-V -- needed since `frameindex` matches entire instruction, not
+// specific operand of G_FRAME_INDEX
+def to_tframeindex : SDNodeXForm<frameindex, [{
+  return CurDAG->getTargetFrameIndex(N->getIndex(), N->getValueType(0));
+}]>;
+
+def : GICustomOperandRenderer<"renderFrameIndex">,
+      GISDNodeXFormEquiv<to_tframeindex>;
+
+def : Pat<(frameindex:$fi), (ADDI (iPTR (to_tframeindex $fi)), 0)>;
+
+def : Pat<(br bb:$target), (BEQ_UNCOND (i32 R0), (i32 R0), bb:$target)>;
 
 def : Pat<(add GPR:$lhs, GPR:$rhs), (ADD GPR:$lhs, GPR:$rhs)>;
 

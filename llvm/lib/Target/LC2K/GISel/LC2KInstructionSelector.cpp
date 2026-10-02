@@ -10,10 +10,10 @@
 /// This file implements the targeting of the InstructionSelector class for
 /// LC2K.
 ///
-/// The fixed-shape arithmetic/logic ops (G_ADD/G_SUB/G_AND/G_OR/G_XOR) are
-/// selected via plain TableGen Pat<>s in LC2KInstrInfo.td, since each always
-/// lowers to the same static instruction sequence regardless of operand
-/// values. Everything else here is hand-written, for reasons that don't
+/// The fixed-shape ops (G_ADD/G_SUB/G_AND/G_OR/G_XOR, s32 G_CONSTANT,
+/// G_FRAME_INDEX, G_BR) are selected via plain TableGen Pat<>s in
+/// LC2KInstrInfo.td, since each always lowers to the same static instruction
+/// sequence. Everything else here is hand-written, for reasons that don't
 /// reduce to a static per-instruction pattern:
 ///  - G_ICMP/G_SELECT need real control flow (no compare-into-register or
 ///    conditional-move hardware) that's unsafe to build mid-traversal of
@@ -21,13 +21,14 @@
 ///    (separately) have no distinct boolean type/register class for
 ///    GlobalISel's pattern importer to type-check an s1 operand against
 ///    (LC2K's s1 values just live in a full GPR -- see PSEUDO_CMP01).
-///  - G_BRCOND/G_BR inspect and mutate a *sibling* terminator (fusing an
+///  - G_BRCOND inspects and mutates a *sibling* terminator (fusing an
 ///    adjacent G_ICMP, redirecting the fallthrough branch), which a
 ///    single-instruction Pat<> can't express.
-///  - G_FRAME_INDEX/G_GLOBAL_VALUE/G_JUMP_TABLE, load/store addressing, and
-///    G_PTR_ADD fold multiple defining instructions' operands together by
-///    walking MachineRegisterInfo, which needs a GIComplexOperandMatcher,
-///    not a plain Pat<>; and G_CALL's implicit operand list is variadic.
+///  - G_GLOBAL_VALUE/G_JUMP_TABLE have no pattern-importer equivalent.
+///  - Load/store addressing and G_PTR_ADD fold multiple defining
+///    instructions' operands together by walking MachineRegisterInfo, which
+///    needs a GIComplexOperandMatcher, not a plain Pat<>; and G_CALL's
+///    implicit operand list is variadic.
 ///
 /// Pointer values held in GPRs are LC2K *word* addresses. LC2K's memory is
 /// only word-addressable, and the DataLayout declares a 32-bit byte (b:32),
@@ -70,15 +71,13 @@ public:
   static const char *getName() { return DEBUG_TYPE; }
 
 private:
-  /// tblgen-generated 'select' implementation. LC2K has no Pat<> patterns,
-  /// so this always fails and every real opcode is handled by the switch in
-  /// select() below -- it's kept only to satisfy the InstructionSelector /
-  /// GIMatchTableExecutor boilerplate.
+  /// tblgen-generated 'select' implementation, built from the Pat<>s in
+  /// LC2KInstrInfo.td. Opcodes it doesn't match fall through to the switch
+  /// in select() below.
   bool selectImpl(MachineInstr &I, CodeGenCoverage &CoverageInfo) const;
 
   bool selectGeneric(MachineInstr &I) const;
   bool selectConstant(MachineInstr &I) const;
-  bool selectFrameIndex(MachineInstr &I) const;
   bool selectGlobalValue(MachineInstr &I) const;
   bool selectJumpTable(MachineInstr &I) const;
   bool selectBrIndirect(MachineInstr &I) const;
@@ -86,7 +85,6 @@ private:
   bool selectLoadStore(MachineInstr &I) const;
   bool selectICmp(MachineInstr &I) const;
   bool selectBrCond(MachineInstr &I) const;
-  bool selectBr(MachineInstr &I) const;
   bool selectSelect(MachineInstr &I) const;
   bool selectTrunc(MachineInstr &I) const;
   bool selectZExtAnyExt(MachineInstr &I) const;
@@ -94,6 +92,9 @@ private:
   bool selectPtrIntCast(MachineInstr &I) const;
   bool selectCall(MachineInstr &I) const;
   bool selectAddrEs(MachineInstr &I) const;
+
+  void renderFrameIndex(MachineInstrBuilder &MIB, const MachineInstr &MI,
+                        int OpIdx) const;
 
   /// Appends the (base, offset) operand pair used by LW/SW/ADDI-style
   /// addressing for a pointer value held in PtrReg, folding a directly
@@ -175,8 +176,6 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectGeneric(I);
   case TargetOpcode::G_CONSTANT:
     return selectConstant(I);
-  case TargetOpcode::G_FRAME_INDEX:
-    return selectFrameIndex(I);
   case TargetOpcode::G_GLOBAL_VALUE:
     return selectGlobalValue(I);
   case TargetOpcode::G_JUMP_TABLE:
@@ -192,8 +191,6 @@ bool LC2KInstructionSelector::select(MachineInstr &I) {
     return selectICmp(I);
   case TargetOpcode::G_BRCOND:
     return selectBrCond(I);
-  case TargetOpcode::G_BR:
-    return selectBr(I);
   case TargetOpcode::G_SELECT:
     return selectSelect(I);
   case TargetOpcode::G_TRUNC:
@@ -250,28 +247,17 @@ bool LC2KInstructionSelector::selectGeneric(MachineInstr &I) const {
 }
 
 bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
+  // s32 constants are selected by the simm20 Pat<> in LC2KInstrInfo.td. The
+  // only G_CONSTANT that reaches here is a p0 one (a null pointer), which
+  // fails that pattern's s32 type check.
   Register Dst = I.getOperand(0).getReg();
   int64_t Val = I.getOperand(1).getCImm()->getSExtValue();
-  // Wider values (and every G_FCONSTANT) are rewritten by
-  // LC2KLegalizerInfo::legalizeConstant/legalizeFConstant before selection,
-  // so only ADDI-sized integer constants get here.
   assert(isInt<20>(Val) &&
          "wide constants should have been split by the legalizer");
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
                     Dst)
                 .addReg(LC2K::R0)
                 .addImm(Val));
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectFrameIndex(MachineInstr &I) const {
-  Register Dst = I.getOperand(0).getReg();
-  int FI = I.getOperand(1).getIndex();
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
-                    Dst)
-                .addFrameIndex(FI)
-                .addImm(0));
   I.eraseFromParent();
   return true;
 }
@@ -483,8 +469,8 @@ bool LC2KInstructionSelector::selectBrCond(MachineInstr &I) const {
 
   // InstructionSelect visits a block's instructions in reverse order, so
   // the terminator immediately after this G_BRCOND may already have been
-  // independently selected into `BEQ_UNCOND R0,R0,%bb.false` by selectBr,
-  // or may still be the original generic G_BR %bb.false. Handle both: the
+  // independently selected into `BEQ_UNCOND R0,R0,%bb.false` by the G_BR
+  // Pat<>, or may still be the original generic G_BR %bb.false. Handle both: the
   // false-target operand sits at index 0 for G_BR, index 2 for a
   // BEQ_UNCOND.
   MachineInstr &Next = *NextIt;
@@ -542,19 +528,6 @@ bool LC2KInstructionSelector::selectBrCond(MachineInstr &I) const {
                 .addReg(LC2K::R0)
                 .addMBB(FalseMBB));
 
-  I.eraseFromParent();
-  return true;
-}
-
-bool LC2KInstructionSelector::selectBr(MachineInstr &I) const {
-  MachineBasicBlock *Target = I.getOperand(0).getMBB();
-  // LC2K has no dedicated unconditional jump; BEQ_UNCOND R0,R0 (encoded
-  // identically to a real BEQ, see LC2KInstrInfo.td) is always taken.
-  constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(),
-                    TII.get(LC2K::BEQ_UNCOND))
-                .addReg(LC2K::R0)
-                .addReg(LC2K::R0)
-                .addMBB(Target));
   I.eraseFromParent();
   return true;
 }
@@ -676,6 +649,14 @@ bool LC2KInstructionSelector::selectAddrEs(MachineInstr &I) const {
                 .add(I.getOperand(1)));
   I.eraseFromParent();
   return true;
+}
+
+void LC2KInstructionSelector::renderFrameIndex(MachineInstrBuilder &MIB,
+                                               const MachineInstr &MI,
+                                               int OpIdx) const {
+  assert(MI.getOpcode() == TargetOpcode::G_FRAME_INDEX && OpIdx == -1 &&
+         "Expected G_FRAME_INDEX");
+  MIB.add(MI.getOperand(1));
 }
 
 namespace llvm {
