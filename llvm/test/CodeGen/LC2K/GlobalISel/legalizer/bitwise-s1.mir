@@ -1,0 +1,39 @@
+# RUN: llc -march=lc2k -run-pass=legalizer -verify-machineinstrs %s -o - | FileCheck %s
+
+# The instruction selector can only select s32 G_AND/G_OR/G_XOR, so s1 ones
+# (e.g. from `and i1` of two icmps) must be widened to s32 here. Other s1
+# values (the G_ICMP results) may remain; they're selected in C++.
+
+--- |
+  define void @f() { ret void }
+...
+---
+name:            f
+legalized:       false
+tracksRegLiveness: true
+body:             |
+  bb.0:
+    liveins: $r1, $r2, $r3
+
+    ; CHECK-LABEL: name: f
+    ; CHECK: legalized: true
+    ; CHECK-NOT: :_(s1) = G_{{AND|OR|XOR}}
+    ; CHECK: :_(s32) = G_AND
+    ; CHECK-NOT: :_(s1) = G_{{AND|OR|XOR}}
+    ; CHECK: :_(s32) = G_OR
+    ; CHECK-NOT: :_(s1) = G_{{AND|OR|XOR}}
+    ; CHECK: :_(s32) = G_XOR
+    ; CHECK-NOT: :_(s1) = G_{{AND|OR|XOR}}
+    ; CHECK: JALR
+    %0:_(s32) = COPY $r1
+    %1:_(s32) = COPY $r2
+    %2:_(s32) = COPY $r3
+    %3:_(s1) = G_ICMP intpred(eq), %0(s32), %1
+    %4:_(s1) = G_ICMP intpred(eq), %1(s32), %2
+    %5:_(s1) = G_AND %3, %4
+    %6:_(s1) = G_OR %5, %3
+    %7:_(s1) = G_XOR %6, %4
+    %8:_(s32) = G_ZEXT %7(s1)
+    $r1 = COPY %8(s32)
+    dead early-clobber %9:gpr = JALR killed $r15, implicit $r1
+...
