@@ -503,9 +503,9 @@ ParseStatus LC2KAsmParser::parseDirective(AsmToken DirectiveID) {
 
     if (auto MaybeValue = parseSignedInteger(Lexer)) {
       int64_t Value = *MaybeValue;
-      if (!isInt<32>(Value))
+      if (!isInt<32>(Value) && !isUInt<32>(Value))
         return Error(ValueLoc, ".fill value '" + std::to_string(Value) +
-                                   "' does not fit in a signed 32-bit integer"),
+                                   "' does not fit in a 32-bit integer"),
                ParseStatus::Failure;
       ValueExpr = MCConstantExpr::create(Value, getContext());
     } else if (Lexer.is(AsmToken::Identifier)) {
