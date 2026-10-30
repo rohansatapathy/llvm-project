@@ -111,14 +111,12 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
       .legalFor({s32})
       .clampScalar(0, s32, s32);
 
-  // AND/OR/XOR additionally need to be legal at s1: the generic .lower()
-  // expansions for the overflow-arithmetic ops below (G_UADDE/G_USUBE need
-  // AND+OR, G_SADDO/G_SSUBO need XOR) combine their boolean carry/borrow/
-  // overflow results with plain AND/OR/XOR at the s1 result type, not s32.
-  // Instruction selection doesn't care about LLT (LC2K has only one
-  // register class), so selectAnd/selectOr/selectXor need no changes.
+  // s1 AND/OR/XOR (from `and i1` etc., or from the generic .lower()
+  // expansions of the overflow-arithmetic ops below) must be widened: they're
+  // selected by Pat<>s in LC2KInstrInfo.td, which only match s32 since GPR is
+  // declared [i32].
   getActionDefinitionsBuilder({G_AND, G_OR, G_XOR})
-      .legalFor({s32, s1})
+      .legalFor({s32})
       .clampScalar(0, s32, s32);
 
   getActionDefinitionsBuilder({G_LOAD, G_STORE})
