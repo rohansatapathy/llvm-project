@@ -1,0 +1,127 @@
+# RUN: llvm-mc --arch=lc2k --filetype=obj %s \
+# RUN:  | llvm-objdump --disassemble --section=.text --section=.data - \
+# RUN:  | FileCheck %s
+
+# NOTE: labels in a different section than the instruction/directive are
+# unresolved until link time, so fixups emit 0 for I-type offsets or .fills
+# that reference such labels.
+
+# CHECK: Disassembly of section .text:
+
+# CHECK: lw 0 1 0
+		lw 0 1 n
+# CHECK: lw 0 2 0
+		lw 0 2 r
+# CHECK: lw 0 4 0
+		lw 0 4 Faddr	load function address
+# CHECK: jalr 4 7
+		jalr 4 7		call function
+# CHECK: sw 0 3 0
+		sw 0 3 result
+# CHECK: halt
+		halt
+# CHECK: lw 0 6 0
+Comb	lw 0 6 one		r6 = 1
+# CHECK: sw 5 7 0
+		sw 5 7 Stack	save returnAddr
+# CHECK: add 5 6 5
+		add 5 6 5		incr stackPtr
+# CHECK: sw 5 1 0
+		sw 5 1 Stack	save n
+# CHECK: add 5 6 5
+		add 5 6 5		incr stackPtr
+# CHECK: sw 5 2 0
+		sw 5 2 Stack	save r
+# CHECK: add 5 6 5
+		add 5 6 5		incr stackPtr
+# CHECK: beq 1 2 25
+		beq 1 2 base	n==r
+# CHECK: beq 0 2 24
+		beq 0 2 base	r == 0
+# CHECK: lw 0 6 0
+		lw 0 6 neg1		r6= -1
+# CHECK: add 1 6 1
+		add 1 6 1		n=n-1
+# CHECK: lw 0 6 0
+		lw 0 6 one		r6 = 1
+# CHECK: sw 5 3 0
+		sw 5 3 Stack	save returnVal (caller save)
+# CHECK: add 0 0 3
+		add 0 0 3		r3=0
+# CHECK: add 5 6 5
+		add 5 6 5		incr stackPtr
+# CHECK: jalr 4 7
+		jalr 4 7		comb(n-1, r)
+# CHECK: lw 0 6 0
+		lw 0 6 neg1		r6 = -1
+# CHECK: add 5 6 5
+		add 5 6 5		decr stackPtr
+# CHECK: lw 5 4 0
+		lw 5 4 Stack	r4 = old returnVal
+# CHECK: add 3 4 3
+		add 3 4 3		update returnVal
+# CHECK: lw 0 4 0
+		lw 0 4 Faddr	restore r4
+# CHECK: add 2 6 2
+		add 2 6 2		r=r-1
+# CHECK: lw 0 6 0
+		lw 0 6 one		r6 = 1
+# CHECK: sw 5 3 0
+		sw 5 3 Stack	save returnVal (caller save)
+# CHECK: add 0 0 3
+		add 0 0 3		r3=0
+# CHECK: add 5 6 5
+		add 5 6 5		incr stackPtr
+# CHECK: jalr 4 7
+		jalr 4 7		comb(n-1, r-1)
+# CHECK: lw 0 6 0
+		lw 0 6 neg1		r6 = -1
+# CHECK: add 5 6 5
+		add 5 6 5		decr stackPtr
+# CHECK: lw 5 4 0
+		lw 5 4 Stack	r4 = old returnVal
+# CHECK: add 3 4 3
+		add 3 4 3		update returnVal
+# CHECK: lw 0 4 0
+		lw 0 4 Faddr	restore r4
+# CHECK: beq 0 0 2
+		beq 0 0 done	skip base case
+# CHECK: lw 0 6 0
+base	lw 0 6 one
+# CHECK: add 0 6 3
+		add 0 6 3		set r3=1
+# CHECK: lw 0 6 0
+done	lw 0 6 neg1
+# CHECK: add 5 6 5
+		add 5 6 5		decr stackPtr
+# CHECK: lw 5 2 0
+		lw 5 2 Stack	load r
+# CHECK: add 5 6 5
+		add 5 6 5		decr stackPtr
+# CHECK: lw 5 1 0
+		lw 5 1 Stack	load n
+# CHECK: add 5 6 5
+		add 5 6 5		decr stackPtr
+# CHECK: lw 5 7 0
+		lw 5 7 Stack	load returnAddr
+# CHECK: add 0 7 6
+		add 0 7 6		reg6 = returnAddr
+# CHECK: jalr 6 7
+		jalr 6 7
+
+# CHECK: Disassembly of section .data:
+
+# CHECK: add 0 0 0
+Faddr	.fill Comb
+# CHECK: add 0 0 0
+result	.fill 0			OUTPUT
+# CHECK: add 0 0 8
+n		.fill 8			INPUT
+# CHECK: add 0 0 4
+r		.fill 4			INPUT
+# CHECK: add 0 0 1
+one		.fill 1
+# CHECK: <unknown>
+neg1	.fill -1
+# CHECK: add 0 0 0
+Stack	.fill 0
