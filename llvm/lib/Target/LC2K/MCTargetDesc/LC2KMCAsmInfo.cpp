@@ -26,6 +26,8 @@ LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T,
   IsLittleEndian = true;
 
   CommentString = "#";
+  // LC2K has one statement per line, so disable the default ';' separator.
+  SeparatorString = "\n";
 
   // All instructions are 4 bytes.
   MaxInstLength = 4;
