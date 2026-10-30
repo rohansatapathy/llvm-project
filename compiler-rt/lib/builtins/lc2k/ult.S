@@ -30,6 +30,6 @@ __lc2k_ult_loop	beq	4	0	__lc2k_ult_no
 	nor		5	2	5
 	beq		5	0	__lc2k_ult_yes
 __lc2k_ult_no	addi	0	1	0
-	jalr	15	0
+	jalr	15	2
 __lc2k_ult_yes	addi	0	1	1
 	jalr	15	2
