@@ -377,6 +377,17 @@ void AddrLabelMapCallbackPtr::allUsesReplacedWith(Value *V2) {
   Map->UpdateForRAUWBlock(cast<BasicBlock>(getValPtr()), cast<BasicBlock>(V2));
 }
 
+/// DataLayout::getTypeStoreSize()/getTypeAllocSize() return sizes in units of
+/// the target's DataLayout-defined "byte" (DataLayout::getByteWidth(), which
+/// may be wider than 8 bits -- see the 'b:' DataLayout spec). MCStreamer's
+/// byte-oriented emission APIs (emitIntValue, emitValue, emitZeros, emitFill,
+/// emitCommonSymbol, ...) always operate in real (8-bit) bytes, so every
+/// DataLayout-derived size must be converted at that boundary; on ordinary
+/// 8-bit-byte targets this is a no-op multiply by 1.
+static uint64_t toMCBytes(const DataLayout &DL, uint64_t DLBytes) {
+  return DLBytes * (DL.getByteWidth() / 8);
+}
+
 /// getGVAlignment - Return the alignment to use for the specified global
 /// value.  This rounds up to the preferred alignment if possible and legal.
 Align AsmPrinter::getGVAlignment(const GlobalObject *GV, const DataLayout &DL,
@@ -843,7 +854,8 @@ void AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
   SectionKind GVKind = TargetLoweringObjectFile::getKindForGlobal(GV, TM);
 
   const DataLayout &DL = GV->getDataLayout();
-  uint64_t Size = GV->getGlobalSize(DL);
+  // Every consumer of Size below is an MC-level API, which counts 8-bit bytes.
+  uint64_t Size = toMCBytes(DL, GV->getGlobalSize(DL));
 
   // If the alignment is specified, we *must* obey it.  Overaligning a global
   // with a specified alignment is a prompt way to break globals emitted to
@@ -3327,17 +3339,6 @@ void AsmPrinter::emitConstantPool() {
 
 // Print assembly representations of the jump tables used by the current
 // function.
-/// DataLayout::getTypeStoreSize()/getTypeAllocSize() return sizes in units of
-/// the target's DataLayout-defined "byte" (DataLayout::getByteWidth(), which
-/// may be wider than 8 bits -- see the 'b:' DataLayout spec). MCStreamer's
-/// byte-oriented emission APIs (emitIntValue, emitValue, emitZeros, emitFill)
-/// always operate in real (8-bit) bytes, so every DataLayout-derived size
-/// must be converted at that boundary; on ordinary 8-bit-byte targets this is
-/// a no-op multiply by 1.
-static uint64_t toMCBytes(const DataLayout &DL, uint64_t DLBytes) {
-  return DLBytes * (DL.getByteWidth() / 8);
-}
-
 void AsmPrinter::emitJumpTableInfo() {
   const MachineJumpTableInfo *MJTI = MF->getJumpTableInfo();
   if (!MJTI) return;
