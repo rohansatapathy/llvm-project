@@ -94,6 +94,13 @@ void LC2KAsmPrinter::emitConstantPool() {
   }
 }
 
+void LC2KAsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
+  if (GV->hasCommonLinkage())
+    reportFatalUsageError("LC2K: common linkage is not supported (global '" +
+                          GV->getName() + "')");
+  AsmPrinter::emitGlobalVariable(GV);
+}
+
 bool LC2KAsmPrinter::doFinalization(Module &M) {
   // Must run before AsmPrinter::doFinalization(M), which ends by calling
   // OutStreamer->finish() -- emitting anything after that point is

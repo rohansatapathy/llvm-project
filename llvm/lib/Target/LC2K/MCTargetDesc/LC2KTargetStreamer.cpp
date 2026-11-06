@@ -45,6 +45,11 @@ LC2KAsmStreamer::LC2KAsmStreamer(MCContext &Context,
 
 bool LC2KAsmStreamer::emitSymbolAttribute(MCSymbol *Symbol,
                                           MCSymbolAttr Attribute) {
+  // LC2K assembly symbols are local unless marked .globl, so there is nothing
+  // to print.
+  if (Attribute == MCSA_Local)
+    return true;
+
   if (Attribute != MCSA_Global)
     return false;
 
@@ -53,6 +58,40 @@ bool LC2KAsmStreamer::emitSymbolAttribute(MCSymbol *Symbol,
   emitEOL();
 
   return true;
+}
+
+void LC2KAsmStreamer::emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
+                                       Align ByteAlignment) {
+  // LC2K assembly has no .comm/.lcomm, so define the symbol in place as
+  // zero-filled words. LC2KAsmPrinter rejects common linkage, so this is only
+  // reached through AsmPrinter's .local + .comm lowering of internal-linkage
+  // zero-initialized globals, and the symbol stays local.
+  // AsmPrinter bumps zero-sized symbols to 1 byte; round up to whole words,
+  // the smallest unit LC2K can address.
+  emitLabel(Symbol);
+  emitZeros(alignTo(Size, 4));
+}
+
+void LC2KAsmStreamer::emitFill(const MCExpr &NumBytes, uint64_t FillValue,
+                               SMLoc Loc) {
+  int64_t NumBytesRes;
+
+  if (!NumBytes.evaluateAsAbsolute(NumBytesRes)) {
+    llvm_unreachable("LC2K only supports constant-size fills");
+  }
+
+  if (NumBytesRes % 4 != 0) {
+    llvm_unreachable("LC2K only supports fills of whole words");
+  }
+
+  if (!isUInt<8>(FillValue)) {
+    llvm_unreachable("Byte fill value must fit within uint8_t");
+  }
+
+  // Replicate the fill byte across each 4-byte word.
+  int64_t Word = static_cast<int32_t>(FillValue * 0x01010101U);
+  emitFill(*MCConstantExpr::create(NumBytesRes / 4, getContext()), 4, Word,
+           Loc);
 }
 
 void LC2KAsmStreamer::emitFill(const MCExpr &NumValues, int64_t Size,

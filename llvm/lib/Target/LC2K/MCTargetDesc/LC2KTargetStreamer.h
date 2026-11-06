@@ -61,12 +61,10 @@ public:
   bool emitSymbolAttribute(MCSymbol *Symbol, MCSymbolAttr Attribute) override;
 
   void emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
-                        Align ByteAlignment) override {}
+                        Align ByteAlignment) override;
 
   void emitFill(const MCExpr &NumBytes, uint64_t FillValue,
-                SMLoc Loc = SMLoc()) override {
-    llvm_unreachable("Unsupported override for emitFill");
-  }
+                SMLoc Loc = SMLoc()) override;
 
   void emitFill(const MCExpr &NumValues, int64_t Size, int64_t Expr,
                 SMLoc Loc = SMLoc()) override;
