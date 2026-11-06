@@ -7722,6 +7722,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasFlag(options::OPT_Qy, options::OPT_Qn, true))
     CmdArgs.push_back("-Qn");
 
+  // LC2K has no common symbols: its assembly format has no .comm equivalent.
+  if (Triple.getArch() == llvm::Triple::lc2k)
+    if (const Arg *A =
+            Args.getLastArg(options::OPT_fcommon, options::OPT_fno_common))
+      if (A->getOption().matches(options::OPT_fcommon))
+        D.Diag(diag::err_drv_unsupported_opt_for_target)
+            << A->getAsString(Args) << TripleStr;
+
   // -fno-common is the default, set -fcommon only when that flag is set.
   Args.addOptInFlag(CmdArgs, options::OPT_fcommon, options::OPT_fno_common);
 
