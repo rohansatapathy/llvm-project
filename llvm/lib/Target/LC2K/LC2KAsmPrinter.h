@@ -42,6 +42,10 @@ public:
   /// code, from doFinalization.
   void emitConstantPool() override;
 
+  /// Rejects common linkage, which LC2K does not support, before deferring
+  /// to the generic implementation.
+  void emitGlobalVariable(const GlobalVariable *GV) override;
+
   bool doFinalization(Module &M) override;
 
 private:
