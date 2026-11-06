@@ -65,8 +65,16 @@ class LC2KAsmParser : public MCTargetAsmParser {
 public:
   LC2KAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
                 const MCInstrInfo &MII)
-      : MCTargetAsmParser(STI, MII), Parser(Parser),
-        Lexer(Parser.getLexer()) {}
+      : MCTargetAsmParser(STI, MII), Parser(Parser), Lexer(Parser.getLexer()) {
+    // LC2K has no conditional assembly, so these names are ordinary labels.
+    // AsmParser dispatches them before calling the target parser, so alias them
+    // to a name with no directive kind to make it pass them through.
+    for (StringRef Directive :
+         {".if", ".ifeq", ".ifge", ".ifgt", ".ifle", ".iflt", ".ifne", ".ifb",
+          ".ifnb", ".ifc", ".ifeqs", ".ifnc", ".ifnes", ".ifdef", ".ifndef",
+          ".ifnotdef", ".elseif", ".else", ".endif"})
+      Parser.addAliasForDirective(Directive, ".lc2k.not.a.directive");
+  }
 
 private:
   MCAsmParser &Parser;
@@ -547,10 +555,20 @@ ParseStatus LC2KAsmParser::parseDirective(AsmToken DirectiveID) {
     return ParseStatus::Success;
   }
 
-  // LC2K doesn't support any directives except .fill and .globl, so return
-  // failure to suppress fallthrough paths in AsmParser.
-  return Error(IDLoc, "unsupported directive '" + IDVal + "'"),
-         ParseStatus::Failure;
+  // LC2K doesn't support any directives except .fill and .globl, so any other
+  // dot-prefixed word is a label, such as the compiler's .L private symbols.
+  // Handle the statement here to suppress fallthrough paths in AsmParser.
+  SmallVector<std::unique_ptr<MCParsedAsmOperand>, 8> Operands;
+  ParseInstructionInfo Info;
+  if (parseInstruction(Info, IDVal, IDLoc, Operands))
+    return ParseStatus::Failure;
+
+  unsigned Opcode;
+  uint64_t ErrorInfo;
+  if (matchAndEmitInstruction(IDLoc, Opcode, Operands, getStreamer(), ErrorInfo,
+                              /*MatchingInlineAsm=*/false))
+    return ParseStatus::Failure;
+  return ParseStatus::Success;
 }
 
 extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void

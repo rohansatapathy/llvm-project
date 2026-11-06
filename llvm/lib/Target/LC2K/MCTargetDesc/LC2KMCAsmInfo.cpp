@@ -46,8 +46,5 @@ LC2KELFMCAsmInfo::LC2KELFMCAsmInfo(const Triple &T,
   HasDotTypeDotSizeDirective = false;
   HasSingleParameterDotFile = false;
 
-  InternalSymbolPrefix = "L";
-  PrivateLabelPrefix = "L";
-
   LabelSuffix = "";
 }
