@@ -2355,7 +2355,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
     // because in LLVM, all default initializers (other than the ones we just
     // handled above, and the case handled below) are guaranteed to have a bit
     // pattern of all zeros.
-    Builder.CreateMemSet(DestPtr, Builder.getInt8(0), SizeVal, false);
+    Builder.CreateMemSet(DestPtr, llvm::ConstantInt::get(CharTy, 0), SizeVal, false);
   }
 
   // With the pointer field protection feature, null pointers do not have a bit

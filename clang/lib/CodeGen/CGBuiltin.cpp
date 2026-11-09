@@ -158,12 +158,11 @@ static void initializeAlloca(CodeGenFunction &CGF, AllocaInst *AI, Value *Size,
     // Nothing to initialize.
     return;
   case LangOptions::TrivialAutoVarInitKind::Zero:
-    Byte = CGF.Builder.getInt8(0x00);
+    Byte = llvm::ConstantInt::get(CGF.CharTy, 0x00);
     break;
   case LangOptions::TrivialAutoVarInitKind::Pattern: {
-    llvm::Type *Int8 = llvm::IntegerType::getInt8Ty(CGF.CGM.getLLVMContext());
     Byte = llvm::dyn_cast<llvm::ConstantInt>(
-        initializationPatternFor(CGF.CGM, Int8));
+        initializationPatternFor(CGF.CGM, CGF.CharTy));
     break;
   }
   }
@@ -4745,7 +4744,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Value *SizeVal = EmitScalarExpr(E->getArg(1));
     EmitNonNullArgCheck(Dest, E->getArg(0)->getType(),
                         E->getArg(0)->getExprLoc(), FD, 0);
-    auto *I = Builder.CreateMemSet(Dest, Builder.getInt8(0), SizeVal, false);
+    auto *I = Builder.CreateMemSet(Dest, llvm::ConstantInt::get(CharTy, 0),
+                                   SizeVal, false);
     addInstToNewSourceAtom(I, nullptr);
     return RValue::get(nullptr);
   }
@@ -4869,8 +4869,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
-    Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
-                                         Builder.getInt8Ty());
+    Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)), CharTy);
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
     EmitNonNullArgCheck(Dest, E->getArg(0)->getType(),
                         E->getArg(0)->getExprLoc(), FD, 0);
@@ -4881,7 +4880,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_memset_inline: {
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     Value *ByteVal =
-        Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)), Builder.getInt8Ty());
+        Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)), CharTy);
     uint64_t Size =
         E->getArg(2)->EvaluateKnownConstInt(getContext()).getZExtValue();
     EmitNonNullArgCheck(RValue::get(Dest.emitRawPointer(*this)),
@@ -4902,8 +4901,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     if (Size.ugt(DstSize))
       break;
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
-    Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
-                                         Builder.getInt8Ty());
+    Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)), CharTy);
     Value *SizeVal = llvm::ConstantInt::get(Builder.getContext(), Size);
     auto *I = Builder.CreateMemSet(Dest, ByteVal, SizeVal, false);
     addInstToNewSourceAtom(I, nullptr);

@@ -1924,7 +1924,8 @@ void AggExprEmitter::DoZeroInitPadding(uint64_t &PaddingStart,
     if (!Start.isZero())
       Addr = Builder.CreateConstGEP(Addr, Start.getQuantity());
     llvm::Constant *SizeVal = Builder.getInt64((End - Start).getQuantity());
-    CGF.Builder.CreateMemSet(Addr, Builder.getInt8(0), SizeVal, false);
+    CGF.Builder.CreateMemSet(Addr, llvm::ConstantInt::get(CGF.CharTy, 0), SizeVal,
+                             false);
   };
 
   if (NextField != nullptr && NextField->isBitField()) {
@@ -2162,8 +2163,9 @@ static void CheckAggExprForMemSetUse(AggValueSlot &Slot, const Expr *E,
   // Okay, it seems like a good idea to use an initial memset, emit the call.
   llvm::Constant *SizeVal = CGF.Builder.getInt64(Size.getQuantity());
 
-  Address Loc = Slot.getAddress().withElementType(CGF.Int8Ty);
-  CGF.Builder.CreateMemSet(Loc, CGF.Builder.getInt8(0), SizeVal, false);
+  Address Loc = Slot.getAddress().withElementType(CGF.CharTy);
+  CGF.Builder.CreateMemSet(Loc, llvm::ConstantInt::get(CGF.CharTy, 0), SizeVal,
+                           false);
 
   // Tell the AggExprEmitter that the slot is known zero.
   Slot.setZeroed();

@@ -591,7 +591,7 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
       llvm::Value *StoreSizeVal = CGF.CGM.getSize(StoreSize);
       CGF.Builder.CreateMemSet(
           CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset),
-          CGF.Builder.getInt8(0), StoreSizeVal);
+          llvm::ConstantInt::get(CGF.CharTy, 0), StoreSizeVal);
     }
   }
 }
@@ -1038,7 +1038,8 @@ void CodeGenFunction::EmitNewArrayInitializer(
     }
 
     // Create the memset.
-    Builder.CreateMemSet(CurPtr, Builder.getInt8(0), RemainingSize, false);
+    Builder.CreateMemSet(CurPtr, llvm::ConstantInt::get(CharTy, 0), RemainingSize,
+                         false);
     return true;
   };
 
