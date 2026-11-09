@@ -680,9 +680,9 @@ struct GenDefaultInitialize
 
     llvm::Constant *SizeVal = CGF->Builder.getInt64(Size.getQuantity());
     Address DstAddr = getAddrWithOffset(Addrs[DstIdx], CurStructOffset, FD);
-    Address Loc = DstAddr.withElementType(CGF->Int8Ty);
-    CGF->Builder.CreateMemSet(Loc, CGF->Builder.getInt8(0), SizeVal,
-                              IsVolatile);
+    Address Loc = DstAddr.withElementType(CGF->CharTy);
+    CGF->Builder.CreateMemSet(Loc, llvm::ConstantInt::get(CGF->CharTy, 0),
+                              SizeVal, IsVolatile);
   }
 
   void callSpecialFunction(QualType FT, CharUnits Offset,
