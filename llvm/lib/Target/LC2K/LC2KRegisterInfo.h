@@ -33,7 +33,7 @@ static const MCPhysReg RA = R15;
 
 class LC2KRegisterInfo : public LC2KGenRegisterInfo {
 public:
-  LC2KRegisterInfo();
+  explicit LC2KRegisterInfo(unsigned ByteWidth);
 
   const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
 

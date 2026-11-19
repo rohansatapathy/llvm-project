@@ -21,7 +21,7 @@ class LC2KFrameLowering : public TargetFrameLowering {
 public:
   explicit LC2KFrameLowering()
       : TargetFrameLowering(StackGrowsDown,
-                            /*StackAlignment=*/Align(4),
+                            /*StackAlignment=*/Align(1),
                             /*LocalAreaOffset=*/0) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;

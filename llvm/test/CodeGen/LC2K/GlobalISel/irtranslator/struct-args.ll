@@ -26,9 +26,9 @@ define i32 @four_field_struct(%s4 %s) {
 ; CHECK: %2:_(s32) = COPY $r3
 ; CHECK: %3:_(s32) = COPY $r4
 ; CHECK: %6:_(p0) = G_FRAME_INDEX %fixed-stack.1
-; CHECK: %4:_(s32) = G_LOAD %6(p0) :: (load (s32) from %fixed-stack.1)
+; CHECK: %4:_(s32) = G_LOAD %6(p0) :: (load (s32) from %fixed-stack.1, align 1)
 ; CHECK: %7:_(p0) = G_FRAME_INDEX %fixed-stack.0
-; CHECK: %5:_(s32) = G_LOAD %7(p0) :: (load (s32) from %fixed-stack.0)
+; CHECK: %5:_(s32) = G_LOAD %7(p0) :: (load (s32) from %fixed-stack.0, align 1)
 ; CHECK: %8:_(s32) = G_ADD %0, %5
 ; CHECK: $r1 = COPY %8(s32)
 ; CHECK: dead early-clobber %9:gpr = JALR killed $r15, implicit $r1

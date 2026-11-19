@@ -19,10 +19,11 @@ using namespace llvm;
 #define GET_INSTRINFO_CTOR_DTOR
 #include "LC2KGenInstrInfo.inc"
 
-LC2KInstrInfo::LC2KInstrInfo(const LC2KSubtarget &STI)
+LC2KInstrInfo::LC2KInstrInfo(const LC2KSubtarget &STI, unsigned ByteWidth)
     : LC2KGenInstrInfo(STI, *STI.getRegisterInfo(), LC2K::ADJCALLSTACKDOWN,
                        LC2K::ADJCALLSTACKUP, /*CatchRetOpcode=*/~0u,
-                       LC2K::JALR) {}
+                       LC2K::JALR),
+      RI(ByteWidth) {}
 
 void LC2KInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI,

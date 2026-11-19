@@ -30,10 +30,9 @@ def CC_LC2K : CallingConv<[
   // places every one of those pieces.
   CCIfNotVarArg<CCIfType<[i32, f32], CCAssignToReg<[ R1, R2, R3, R4 ]>>>,
 
-  // Otherwise they are assigned to the stack in 4-byte aligned units.
-  // NOTE: LC2K is word-addressable, so the FrameLowering and RegisterInfo
-  // classes will need to convert bytes to words before emitting frame info.
-  CCAssignToStack<4, 4>
+  // Otherwise they are assigned to the stack, one word per slot. LC2K is
+  // word-addressable, so stack offsets are counted in words.
+  CCAssignToStack<1, 1>
 ]>;
 
 // NOTE: RA (R15) is technically caller-saved according to the ABI, but we

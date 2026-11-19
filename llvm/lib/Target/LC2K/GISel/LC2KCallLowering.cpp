@@ -78,11 +78,11 @@ struct LC2KOutgoingArgHandler : public CallLowering::OutgoingValueHandler {
                             const MachinePointerInfo &MPO,
                             const CCValAssign &VA) override {
     MachineFunction &MF = MIRBuilder.getMF();
-    uint64_t LocMemOffset = VA.getLocMemOffset();
 
-    auto *MMO =
-        MF.getMachineMemOperand(MPO, MachineMemOperand::MOStore, MemTy,
-                                commonAlignment(Align(4), LocMemOffset));
+    // Stack argument slots are one word each (see CC_LC2K), and a word is
+    // LC2K's addressable unit, so every slot is trivially aligned.
+    auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOStore, MemTy,
+                                        Align(1));
 
     Register ExtReg = extendRegister(ValVReg, VA);
     MIRBuilder.buildStore(ExtReg, Addr, *MMO);
@@ -119,11 +119,19 @@ struct LC2KIncomingArgHandler : public CallLowering::IncomingValueHandler {
   Register getStackAddress(uint64_t MemSize, int64_t Offset,
                            MachinePointerInfo &MPO,
                            ISD::ArgFlagsTy Flags) override {
-    auto &MFI = MIRBuilder.getMF().getFrameInfo();
+    MachineFunction &MF = MIRBuilder.getMF();
+    auto &MFI = MF.getFrameInfo();
 
     // Byval is assumed to be writable memory, but other stack passed arguments
     // are not.
     const bool IsImmutable = !Flags.isByVal();
+
+    // Generic call lowering passes a byval argument's size in DataLayout bytes
+    // (from getTypeAllocSize), but every other argument's size in 8-bit bytes
+    // (from LLT::getSizeInBytes). Frame objects are sized in DataLayout bytes
+    // (32-bit words on LC2K), so convert the latter.
+    if (!Flags.isByVal())
+      MemSize = divideCeil(MemSize * 8, MF.getDataLayout().getByteWidth());
 
     int FI = MFI.CreateFixedObject(MemSize, Offset, IsImmutable);
     MPO = MachinePointerInfo::getFixedStack(MIRBuilder.getMF(), FI);
@@ -291,7 +299,7 @@ bool LC2KCallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
     // assigned) is exactly the offset where the first vararg would land.
     // Create a marker fixed-stack object there for G_VASTART to find later.
     MachineFrameInfo &MFI = MF.getFrameInfo();
-    int FI = MFI.CreateFixedObject(4, Assigner.StackSize,
+    int FI = MFI.CreateFixedObject(/*Size=*/1, Assigner.StackSize,
                                    /*IsImmutable=*/true);
     MF.getInfo<LC2KMachineFunctionInfo>()->setVarArgsFrameIndex(FI);
   }

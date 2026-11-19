@@ -30,7 +30,7 @@ using namespace llvm;
 
 LC2KSubtarget::LC2KSubtarget(const Triple &TT, const std::string &CPU,
                              const std::string &FS, const LC2KTargetMachine &TM)
-    : LC2KGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(*this), FrameLowering(),
+    : LC2KGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(*this, TM.createDataLayout().getByteWidth()), FrameLowering(),
       TLInfo(TM, *this) {
   CallLoweringInfo.reset(new LC2KCallLowering(*getTargetLowering()));
   Legalizer.reset(new LC2KLegalizerInfo(*this));
