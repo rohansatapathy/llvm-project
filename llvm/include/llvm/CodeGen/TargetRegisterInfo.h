@@ -102,6 +102,13 @@ private:
   unsigned HwMode;
 
 protected:
+  /// Width in bits of the target's smallest addressable unit (the
+  /// DataLayout "byte", see the 'b:' DataLayout spec). Spill sizes and
+  /// alignments are defined in bits in TableGen and converted to stack
+  /// units using this. Targets with non-8-bit bytes must set it to match
+  /// their DataLayout.
+  unsigned StackUnitWidth = 8;
+
   TargetRegisterInfo(const TargetRegisterInfoDesc *ID,
                      const char *SubRegIndexStrings,
                      ArrayRef<uint32_t> SubRegIndexNameOffsets,
@@ -136,16 +143,16 @@ public:
     return TypeSize::getFixed(getRegClassInfo(RC).RegSize);
   }
 
-  /// Return the size in bytes of the stack slot allocated to hold a spilled
-  /// copy of a register from class RC.
+  /// Return the size in target bytes (defined in DataLayout) of the stack 
+  /// slot allocated to hold a spilled copy of a register from class RC.
   unsigned getSpillSize(const TargetRegisterClass &RC) const {
-    return getRegClassInfo(RC).SpillSize / 8;
+    return getRegClassInfo(RC).SpillSize / StackUnitWidth;
   }
 
-  /// Return the minimum required alignment in bytes for a spill slot for
-  /// a register of this class.
+  /// Return the minimum required alignment in target bytes (defined in 
+  /// DataLayout) for a spill slot for a register of this class.
   Align getSpillAlign(const TargetRegisterClass &RC) const {
-    return Align(getRegClassInfo(RC).SpillAlignment / 8);
+    return Align(getRegClassInfo(RC).SpillAlignment / StackUnitWidth);
   }
 
   /// Return the stack ID for spill slots holding a spilled copy of a register
