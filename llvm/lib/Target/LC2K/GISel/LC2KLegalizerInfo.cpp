@@ -424,7 +424,7 @@ bool LC2KLegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   auto Addr = MIRBuilder.buildFrameIndex(LLT::pointer(0, 32), FI);
   MIRBuilder.buildStore(Addr, MI.getOperand(0).getReg(), MachinePointerInfo(),
-                        Align(4));
+                        MF.getDataLayout().getPointerABIAlignment(0));
 
   MI.eraseFromParent();
   return true;
@@ -665,7 +665,7 @@ bool LC2KLegalizerInfo::legalizeBRJT(LegalizerHelper &Helper,
 
   MachineMemOperand *MMO = MF.getMachineMemOperand(
       MachinePointerInfo::getJumpTable(MF), MachineMemOperand::MOLoad, P0,
-      Align(4));
+      MF.getDataLayout().getPointerABIAlignment(0));
   auto Target = MIRBuilder.buildLoad(P0, Addr, *MMO);
 
   MIRBuilder.buildBrIndirect(Target.getReg(0));

@@ -31,7 +31,12 @@
 
 using namespace llvm;
 
-LC2KRegisterInfo::LC2KRegisterInfo() : LC2KGenRegisterInfo(LC2K::RA) {}
+LC2KRegisterInfo::LC2KRegisterInfo(unsigned ByteWidth)
+    : LC2KGenRegisterInfo(LC2K::RA) {
+  // LC2K is word-addressable, so the stack's addressable unit is the
+  // DataLayout byte (b:32), not 8 bits.
+  StackUnitWidth = ByteWidth;
+}
 
 const MCPhysReg *
 LC2KRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {

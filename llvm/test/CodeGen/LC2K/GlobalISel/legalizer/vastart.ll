@@ -10,7 +10,7 @@ declare void @llvm.va_start.p0(ptr)
 ; CHECK-LABEL: name: f
 ; CHECK: %2:_(p0) = G_FRAME_INDEX %stack.0.ap
 ; CHECK: %4:_(p0) = G_FRAME_INDEX %fixed-stack.0
-; CHECK: G_STORE %4(p0), %2(p0) :: (store (p0))
+; CHECK: G_STORE %4(p0), %2(p0) :: (store (p0), align 1)
 define void @f(i32 %a, ...) {
 entry:
   %ap = alloca ptr, align 4

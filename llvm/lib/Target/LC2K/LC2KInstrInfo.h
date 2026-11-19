@@ -28,7 +28,7 @@ class LC2KInstrInfo : public LC2KGenInstrInfo {
   const LC2KRegisterInfo RI;
 
 public:
-  explicit LC2KInstrInfo(const LC2KSubtarget &STI);
+  LC2KInstrInfo(const LC2KSubtarget &STI, unsigned ByteWidth);
 
   const LC2KRegisterInfo &getRegisterInfo() const { return RI; }
 
