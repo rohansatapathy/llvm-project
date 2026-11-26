@@ -75,7 +75,7 @@ static MCSubtargetInfo *createLC2KMCSubtargetInfo(const Triple &TT,
 unsigned LC2K::getImmBits(const MCSubtargetInfo &STI) {
   if (STI.hasFeature(LC2K::FeatureEncPhobos))
     return 21;
-  assert(STI.hasFeature(LC2K::FeatureEnc470) &&
+  assert(STI.hasFeature(LC2K::FeatureEncEECS470) &&
          "No instruction encoding feature set");
   return 20;
 }
@@ -116,7 +116,7 @@ void LC2K::validateFeatures(const MCSubtargetInfo &STI, StringRef FnName) {
                           "supported");
   }
 
-  assert(STI.hasFeature(LC2K::FeatureEnc470) +
+  assert(STI.hasFeature(LC2K::FeatureEncEECS470) +
                  STI.hasFeature(LC2K::FeatureEncPhobos) ==
              1 &&
          "Every LC2K CPU must enable exactly one encoding feature");

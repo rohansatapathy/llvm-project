@@ -12,7 +12,7 @@
 
 // Default ISA variant is EECS 470 LC2K.
 defvar EECS470Features = [FeatureNOR, FeatureNAND, FeatureADDI,
-                          FeatureNOOPInstr, FeatureGPR16, FeatureEnc470];
+                          FeatureNOOPInstr, FeatureGPR16, FeatureEncEECS470];
 
 def : ProcessorModel<"generic", NoSchedModel, EECS470Features>;
 def : ProcessorModel<"eecs470", NoSchedModel, EECS470Features>;

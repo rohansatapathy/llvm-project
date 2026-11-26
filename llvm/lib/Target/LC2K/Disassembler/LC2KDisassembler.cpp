@@ -84,7 +84,7 @@ DecodeStatus LC2KDisassembler::getInstruction(MCInst &Instr, uint64_t &Size,
   const uint8_t *Table;
   if (STI.hasFeature(LC2K::FeatureEncPhobos))
     Table = DecoderTableLC2K_ModePhobos32;
-  else if (STI.hasFeature(LC2K::FeatureEnc470))
+  else if (STI.hasFeature(LC2K::FeatureEncEECS470))
     Table = DecoderTableLC2K_ModeEECS47032;
   else
     llvm_unreachable("LC2K subtarget has no instruction encoding feature");

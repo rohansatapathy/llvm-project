@@ -35,8 +35,10 @@ def FeatureGPR16 : SubtargetFeature<"gpr16", "HasGPR16", "true",
 
 // EECS 470 and Phobos use different instruction encodings, enable exactly
 // one.
-def FeatureEnc470 : SubtargetFeature<"enc-470", "HasEnc470", "true",
-                                     "Use the EECS 470 instruction encoding">;
+def FeatureEncEECS470 : SubtargetFeature<"enc-eecs470", "HasEncEECS470",
+                                         "true",
+                                         "Use the EECS 470 instruction "
+                                         "encoding">;
 
 def FeatureEncPhobos : SubtargetFeature<"enc-phobos", "HasEncPhobos", "true",
                                         "Use the Phobos instruction encoding">;
@@ -56,8 +58,9 @@ def HasNOOPInstr : Predicate<"Subtarget->hasNOOPInstr()">,
 
 // Encoding predicates double as AssemblerPredicates so MC-layer HwMode
 // computation (which only sees feature bits) can use them.
-def HasEnc470 : Predicate<"Subtarget->hasEnc470()">,
-                AssemblerPredicate<(all_of FeatureEnc470), "enc-470">;
+def HasEncEECS470 : Predicate<"Subtarget->hasEncEECS470()">,
+                    AssemblerPredicate<(all_of FeatureEncEECS470),
+                                       "enc-eecs470">;
 def HasEncPhobos : Predicate<"Subtarget->hasEncPhobos()">,
                    AssemblerPredicate<(all_of FeatureEncPhobos), "enc-phobos">;
 
@@ -67,5 +70,5 @@ def HasEncPhobos : Predicate<"Subtarget->hasEncPhobos()">,
 
 // HwMode used to select between instruction encodings based on `-mcpu`
 // (see LC2KInstrFormats.td).
-def ModeEECS470 : HwMode<[HasEnc470]>;
+def ModeEECS470 : HwMode<[HasEncEECS470]>;
 def ModePhobos : HwMode<[HasEncPhobos]>;
