@@ -17,8 +17,12 @@ namespace LC2K {
 enum Fixups {
   fixup_lc2k_none = FirstTargetFixupKind,
   fixup_lc2k_32,
+  // Absolute and PC+1-relative fixups for I-type offset field (20 bits on
+  // eecs470, 21 bits on phobos).
   fixup_lc2k_20,
-  fixup_lc2k_pcplus1rel,
+  fixup_lc2k_20_pcplus1rel,
+  fixup_lc2k_21,
+  fixup_lc2k_21_pcplus1rel,
 
   // Marker
   LastTargetFixupKind,

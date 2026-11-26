@@ -17,6 +17,8 @@
 # CHECK-NEXT:     0x4 R_LC2K_NONE - 0x0
 # CHECK-NEXT:     0x8 R_LC2K_20 - 0x0
 # CHECK-NEXT:     0xC R_LC2K_20_PCPLUS1REL - 0x0
+# CHECK-NEXT:     0x10 R_LC2K_21 - 0x0
+# CHECK-NEXT:     0x14 R_LC2K_21_PCPLUS1REL - 0x0
 # CHECK-NEXT:   }
 # CHECK-NEXT: ]
 
@@ -41,4 +43,7 @@ Sections:
         Type: R_LC2K_20
       - Offset: 0xC
         Type: R_LC2K_20_PCPLUS1REL
-
+      - Offset: 0x10
+        Type: R_LC2K_21
+      - Offset: 0x14
+        Type: R_LC2K_21_PCPLUS1REL

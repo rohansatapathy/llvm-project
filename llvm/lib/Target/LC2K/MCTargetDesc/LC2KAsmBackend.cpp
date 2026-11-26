@@ -55,7 +55,9 @@ MCFixupKindInfo LC2KAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"fixup_lc2k_none", 0, 0, 0},
       {"fixup_lc2k_32", 0, 32, 0},
       {"fixup_lc2k_20", 0, 20, 0},
-      {"fixup_lc2k_pcplus1rel", 0, 20, 0},
+      {"fixup_lc2k_20_pcplus1rel", 0, 20, 0},
+      {"fixup_lc2k_21", 0, 21, 0},
+      {"fixup_lc2k_21_pcplus1rel", 0, 21, 0},
   };
 
   static_assert(std::size(Infos) == LC2K::NumTargetFixupKinds,
@@ -76,11 +78,13 @@ static uint32_t adjustFixupValue(unsigned Kind, uint64_t Value) {
     return static_cast<uint32_t>(SValue);
   case LC2K::fixup_lc2k_none:
   case LC2K::fixup_lc2k_20:
+  case LC2K::fixup_lc2k_21:
   case LC2K::fixup_lc2k_32:
     // LC2K is word-addressed, so need to convert given byte address -> word
     // address
     return static_cast<uint32_t>(SValue / 4);
-  case LC2K::fixup_lc2k_pcplus1rel:
+  case LC2K::fixup_lc2k_20_pcplus1rel:
+  case LC2K::fixup_lc2k_21_pcplus1rel:
     // LC2K branches are relative to PC+1, and LLVM gives branch offset
     // relative to just PC, so subtract 1 to compensate.
     return static_cast<uint32_t>(SValue / 4 - 1);
@@ -100,11 +104,19 @@ void LC2KAsmBackend::applyFixup(const MCFragment &F, const MCFixup &Fixup,
   if (!Value)
     return; // This value doesn't change the encoding
 
-  // Check whether resolved fixup is in range.
-  if (IsResolved &&
-      (Kind == LC2K::fixup_lc2k_20 || Kind == LC2K::fixup_lc2k_pcplus1rel) &&
-      !isInt<20>(static_cast<int32_t>(Value)))
-    getContext().reportError(Fixup.getLoc(), "fixup value out of range");
+  // Check whether a resolved offset fixup fits its signed field.
+  switch (Kind) {
+  case LC2K::fixup_lc2k_20:
+  case LC2K::fixup_lc2k_20_pcplus1rel:
+  case LC2K::fixup_lc2k_21:
+  case LC2K::fixup_lc2k_21_pcplus1rel:
+    if (IsResolved && !isIntN(getFixupKindInfo(Kind).TargetSize,
+                              static_cast<int32_t>(Value)))
+      getContext().reportError(Fixup.getLoc(), "fixup value out of range");
+    break;
+  default:
+    break;
+  }
 
   uint32_t Inst = 0;
   for (size_t i = 0; i < sizeof(uint32_t); i++) { // NOLINT

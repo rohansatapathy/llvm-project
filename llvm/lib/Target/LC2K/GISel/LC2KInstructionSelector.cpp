@@ -263,8 +263,8 @@ bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
 bool LC2KInstructionSelector::selectGlobalValue(MachineInstr &I) const {
   Register Dst = I.getOperand(0).getReg();
   const GlobalValue *GV = I.getOperand(1).getGlobal();
-  // The fixup_lc2k_20 fixup already divides the symbol's resolved value by
-  // 4 at assembly time, so no manual scaling is needed here.
+  // The absolute offset fixup (fixup_lc2k_20/21) already divides the symbol's
+  // resolved value by 4 at assembly time, so no manual scaling is needed here.
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
                     Dst)
                 .addReg(LC2K::R0)
@@ -276,7 +276,7 @@ bool LC2KInstructionSelector::selectGlobalValue(MachineInstr &I) const {
 bool LC2KInstructionSelector::selectJumpTable(MachineInstr &I) const {
   // Same idea as selectGlobalValue: the base address of a jump table is
   // just another word address materialized with ADDI R0,<sym>, relying on
-  // the same fixup_lc2k_20 byte->word conversion.
+  // the same fixup_lc2k_20/21 byte->word conversion.
   Register Dst = I.getOperand(0).getReg();
   int JTI = I.getOperand(1).getIndex();
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),

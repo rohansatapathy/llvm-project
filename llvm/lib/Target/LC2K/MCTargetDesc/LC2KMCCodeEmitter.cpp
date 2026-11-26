@@ -67,18 +67,21 @@ public:
 #include "LC2KGenMCCodeEmitter.inc"
 
 static void addFixup(SmallVectorImpl<MCFixup> &Fixups, const MCExpr *Expr,
-                     const MCInst &Inst) {
+                     const MCInst &Inst, const MCSubtargetInfo &STI) {
   bool PCRel = false;
   uint16_t FixupKind = LC2K::fixup_lc2k_none;
+  unsigned ImmBits = LC2K::getImmBits(STI);
+  assert((ImmBits == 20 || ImmBits == 21) && "No fixups for offset width");
 
   switch (Inst.getOpcode()) {
   case LC2K::LW:
   case LC2K::SW:
   case LC2K::ADDI:
-    FixupKind = LC2K::fixup_lc2k_20;
+    FixupKind = ImmBits == 21 ? LC2K::fixup_lc2k_21 : LC2K::fixup_lc2k_20;
     break;
   case LC2K::BEQ:
-    FixupKind = LC2K::fixup_lc2k_pcplus1rel;
+    FixupKind = ImmBits == 21 ? LC2K::fixup_lc2k_21_pcplus1rel
+                              : LC2K::fixup_lc2k_20_pcplus1rel;
     PCRel = true;
     break;
   }
@@ -118,7 +121,7 @@ LC2KMCCodeEmitter::getOffsetValue(const MCInst &Inst, unsigned OpNo,
     }
 
     if (Expr->getKind() == MCExpr::SymbolRef) {
-      addFixup(Fixups, Expr, Inst);
+      addFixup(Fixups, Expr, Inst, SubtargetInfo);
       return 0;
     }
 

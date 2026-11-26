@@ -452,9 +452,12 @@ bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
 
     if (auto MaybeInt = parseSignedInteger(Lexer)) {
       int64_t OffsetValue = *MaybeInt;
-      if (!isInt<20>(OffsetValue))
+      unsigned ImmBits = LC2K::getImmBits(getSTI());
+      if (!isIntN(ImmBits, OffsetValue))
         return Error(OffsetLoc, "value '" + std::to_string(OffsetValue) +
-                                    "' too large for 20-bit offset field");
+                                    "' too large for " +
+                                    std::to_string(ImmBits) +
+                                    "-bit offset field");
       OffsetExpr = MCConstantExpr::create(OffsetValue, getContext());
     } else if (Lexer.is(AsmToken::Identifier)) {
       AsmToken OffsetToken = Lexer.getTok();
