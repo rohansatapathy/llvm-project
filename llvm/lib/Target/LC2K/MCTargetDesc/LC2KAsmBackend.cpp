@@ -128,7 +128,10 @@ bool LC2KAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
     return false;
   }
 
-  constexpr uint32_t NoopEncoding = 0x70000000;
+  // Select between hardware NOOP (EECS 470) or pseudo-NOOP (Phobos).
+  assert(STI && "LC2K NOP padding depends on instruction encoding");
+  uint32_t NoopEncoding =
+      STI->hasFeature(LC2K::FeatureEncPhobos) ? 0x00000000 : 0x70000000;
   for (uint64_t i = 0; i < Count; i += 4) // NOLINT
     support::endian::write<uint32_t>(OS, NoopEncoding, Endian);
 

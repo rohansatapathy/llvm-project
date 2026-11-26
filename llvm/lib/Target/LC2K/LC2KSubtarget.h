@@ -76,12 +76,7 @@ public:
 #include "LC2KGenSubtargetInfo.inc"
 
   /// Width in bits of the signed immediate field of I-type instructions.
-  unsigned getImmBits() const {
-    if (HasEncPhobos)
-      return 21;
-    assert(HasEnc470 && "No instruction encoding feature set");
-    return 20;
-  }
+  unsigned getImmBits() const { return LC2K::getImmBits(*this); }
 
   const TargetRegisterInfo *getRegisterInfo() const override {
     return &InstrInfo.getRegisterInfo();

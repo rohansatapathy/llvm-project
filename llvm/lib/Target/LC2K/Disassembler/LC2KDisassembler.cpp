@@ -62,7 +62,8 @@ static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, // NOLINT
 
 static DecodeStatus decodeOffset(MCInst &Inst, uint32_t Imm, uint64_t Address,
                                  const MCDisassembler *Decoder) {
-  Inst.addOperand(MCOperand::createImm(SignExtend64<20>(Imm)));
+  unsigned ImmBits = LC2K::getImmBits(Decoder->getSubtargetInfo());
+  Inst.addOperand(MCOperand::createImm(SignExtend64(Imm, ImmBits)));
   return MCDisassembler::Success;
 }
 
@@ -79,5 +80,13 @@ DecodeStatus LC2KDisassembler::getInstruction(MCInst &Instr, uint64_t &Size,
   Size = 4;
 
   uint32_t Insn = support::endian::read32le(Bytes.data());
-  return decodeInstruction(DecoderTableLC2K32, Instr, Insn, Address, this, STI);
+  // Select decoder table based on ISA variant.
+  const uint8_t *Table;
+  if (STI.hasFeature(LC2K::FeatureEncPhobos))
+    Table = DecoderTableLC2K_ModePhobos32;
+  else if (STI.hasFeature(LC2K::FeatureEnc470))
+    Table = DecoderTableLC2K_ModeEECS47032;
+  else
+    llvm_unreachable("LC2K subtarget has no instruction encoding feature");
+  return decodeInstruction(Table, Instr, Insn, Address, this, STI);
 }

@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-def OPC_ADD   : LC2KOpcode<"add",   0b0000>;
-def OPC_NOR   : LC2KOpcode<"nor",   0b0001>;
-def OPC_LW    : LC2KOpcode<"lw",    0b0010>;
-def OPC_SW    : LC2KOpcode<"sw",    0b0011>;
-def OPC_BEQ   : LC2KOpcode<"beq",   0b0100>;
-def OPC_JALR  : LC2KOpcode<"jalr",  0b0101>;
-def OPC_HALT  : LC2KOpcode<"halt",  0b0110>;
-def OPC_NOOP  : LC2KOpcode<"noop",  0b0111>;
-def OPC_ADDI  : LC2KOpcode<"addi",  0b1000>;
-def OPC_NAND  : LC2KOpcode<"nand",  0b1001>;
+def OPC_ADD  : LC2KOpcode<"add",  eecs470 = 0b0000, phobos = 0b000>;
+def OPC_NOR  : LC2KOpcode<"nor",  eecs470 = 0b0001>;
+def OPC_LW   : LC2KOpcode<"lw",   eecs470 = 0b0010, phobos = 0b010>;
+def OPC_SW   : LC2KOpcode<"sw",   eecs470 = 0b0011, phobos = 0b011>;
+def OPC_BEQ  : LC2KOpcode<"beq",  eecs470 = 0b0100, phobos = 0b100>;
+def OPC_JALR : LC2KOpcode<"jalr", eecs470 = 0b0101, phobos = 0b101>;
+def OPC_HALT : LC2KOpcode<"halt", eecs470 = 0b0110, phobos = 0b110>;
+def OPC_NOOP : LC2KOpcode<"noop", eecs470 = 0b0111>;
+def OPC_ADDI : LC2KOpcode<"addi", eecs470 = 0b1000, phobos = 0b111>;
+def OPC_NAND : LC2KOpcode<"nand", eecs470 = 0b1001, phobos = 0b001>;
 
 let 
   mayLoad = false, 

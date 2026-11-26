@@ -53,3 +53,19 @@ def HasADDI : Predicate<"Subtarget->hasADDI()">,
               AssemblerPredicate<(all_of FeatureADDI), "addi">;
 def HasNOOPInstr : Predicate<"Subtarget->hasNOOPInstr()">,
                    AssemblerPredicate<(all_of FeatureNOOPInstr), "noop-instr">;
+
+// Encoding predicates double as AssemblerPredicates so MC-layer HwMode
+// computation (which only sees feature bits) can use them.
+def HasEnc470 : Predicate<"Subtarget->hasEnc470()">,
+                AssemblerPredicate<(all_of FeatureEnc470), "enc-470">;
+def HasEncPhobos : Predicate<"Subtarget->hasEncPhobos()">,
+                   AssemblerPredicate<(all_of FeatureEncPhobos), "enc-phobos">;
+
+//===----------------------------------------------------------------------===//
+// Hardware modes
+//===----------------------------------------------------------------------===//
+
+// HwMode used to select between instruction encodings based on `-mcpu`
+// (see LC2KInstrFormats.td).
+def ModeEECS470 : HwMode<[HasEnc470]>;
+def ModePhobos : HwMode<[HasEncPhobos]>;

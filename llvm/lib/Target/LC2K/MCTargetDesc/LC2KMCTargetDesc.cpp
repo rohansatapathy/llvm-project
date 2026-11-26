@@ -72,6 +72,14 @@ static MCSubtargetInfo *createLC2KMCSubtargetInfo(const Triple &TT,
   return X;
 }
 
+unsigned LC2K::getImmBits(const MCSubtargetInfo &STI) {
+  if (STI.hasFeature(LC2K::FeatureEncPhobos))
+    return 21;
+  assert(STI.hasFeature(LC2K::FeatureEnc470) &&
+         "No instruction encoding feature set");
+  return 20;
+}
+
 StringRef LC2K::normalizeCPU(StringRef CPU) {
   if (CPU.empty() || CPU == "generic")
     return "eecs470";

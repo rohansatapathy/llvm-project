@@ -57,6 +57,10 @@ StringRef normalizeCPU(StringRef CPU);
 /// "target-features" are being checked, if any, for the error message.
 void validateFeatures(const MCSubtargetInfo &STI, StringRef FnName = "");
 
+/// Width in bits of the signed immediate field of I-type instructions under
+/// STI's instruction encoding.
+unsigned getImmBits(const MCSubtargetInfo &STI);
+
 } // namespace LC2K
 
 } // namespace llvm
