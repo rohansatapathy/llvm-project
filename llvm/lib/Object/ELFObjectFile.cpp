@@ -415,6 +415,15 @@ std::optional<StringRef> ELFObjectFileBase::tryGetCPUName() const {
     return StringRef("future");
   case ELF::EM_BPF:
     return StringRef("v4");
+  case ELF::EM_LC2K:
+    switch (getPlatformFlags() & ELF::EF_LC2K_MACH) {
+    case ELF::EF_LC2K_MACH_EECS470:
+      return StringRef("eecs470");
+    case ELF::EF_LC2K_MACH_PHOBOS:
+      return StringRef("phobos");
+    default:
+      return std::nullopt;
+    }
   default:
     return std::nullopt;
   }

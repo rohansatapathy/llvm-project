@@ -155,4 +155,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeLC2KTargetMC() {
 
   TargetRegistry::RegisterMCCodeEmitter(getTheLC2KTarget(),
                                         createLC2KMCCodeEmitter);
+
+  TargetRegistry::RegisterObjectTargetStreamer(getTheLC2KTarget(),
+                                               createLC2KObjectTargetStreamer);
 }

@@ -587,6 +587,10 @@ void ScalarBitSetTraits<ELFYAML::ELF_EF>::bitset(IO &IO,
     BCaseMask(EF_SPARCV9_PSO, EF_SPARCV9_MM);
     BCaseMask(EF_SPARCV9_TSO, EF_SPARCV9_MM);
     break;
+  case ELF::EM_LC2K:
+    BCaseMask(EF_LC2K_MACH_EECS470, EF_LC2K_MACH);
+    BCaseMask(EF_LC2K_MACH_PHOBOS, EF_LC2K_MACH);
+    break;
   case ELF::EM_XTENSA:
     BCase(EF_XTENSA_XT_INSN);
     BCaseMask(EF_XTENSA_MACH_NONE, EF_XTENSA_MACH);

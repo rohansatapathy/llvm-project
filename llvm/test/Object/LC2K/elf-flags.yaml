@@ -1,0 +1,26 @@
+## The LC2K machine flags round-trip through yaml2obj and obj2yaml.
+
+# RUN: yaml2obj %s -DFLAGS='[ EF_LC2K_MACH_PHOBOS ]' -o %t.phobos
+# RUN: llvm-readobj -h %t.phobos | FileCheck %s --check-prefix=READOBJ
+# RUN: obj2yaml %t.phobos | FileCheck %s --check-prefix=YAML
+
+# READOBJ:      Flags [ (0x1)
+# READOBJ-NEXT:   EF_LC2K_MACH_PHOBOS (0x1)
+# READOBJ-NEXT: ]
+
+# YAML: Flags: [ EF_LC2K_MACH_PHOBOS ]
+
+## EF_LC2K_MACH_EECS470 is 0, so it is accepted but leaves the flags empty.
+# RUN: yaml2obj %s -DFLAGS='[ EF_LC2K_MACH_EECS470 ]' -o %t.eecs470
+# RUN: llvm-readobj -h %t.eecs470 | FileCheck %s --check-prefix=EECS470
+
+# EECS470:      Flags [ (0x0)
+# EECS470-NEXT: ]
+
+--- !ELF
+FileHeader:
+  Class:   ELFCLASS32
+  Data:    ELFDATA2LSB
+  Type:    ET_REL
+  Machine: EM_LC2K
+  Flags:   [[FLAGS]]

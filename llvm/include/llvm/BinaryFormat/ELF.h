@@ -708,6 +708,16 @@ enum {
 #include "ELFRelocs/Lanai.def"
 };
 
+// LC2K specific e_flags
+enum : unsigned {
+  // Machine (CPU) type mask.
+  EF_LC2K_MACH = 0x000000ff,
+  // NOTE: EECS470 gets value 0 for backwards compatibility for before
+  // MACH variants were added.
+  EF_LC2K_MACH_EECS470 = 0x00000000,
+  EF_LC2K_MACH_PHOBOS = 0x00000001,
+};
+
 // ELF Relocation types for LC2K.
 enum {
 #include "ELFRelocs/LC2K.def"

@@ -27,9 +27,11 @@ class MCContext;
 class MCInstrInfo;
 class Target;
 class MCObjectTargetWriter;
+class MCStreamer;
 class MCSubtargetInfo;
 class MCRegisterInfo;
 class MCTargetOptions;
+class MCTargetStreamer;
 
 MCCodeEmitter *createLC2KMCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx);
 
@@ -38,6 +40,11 @@ MCAsmBackend *createLC2KAsmBackend(const Target &T, const MCSubtargetInfo &STI,
                                    const MCTargetOptions &Options);
 
 std::unique_ptr<MCObjectTargetWriter> createLC2KELFObjectWriter(uint8_t OSABI);
+
+/// Create the target streamer for object files, which records the CPU in the
+/// ELF header flags.
+MCTargetStreamer *createLC2KObjectTargetStreamer(MCStreamer &S,
+                                                 const MCSubtargetInfo &STI);
 
 namespace LC2K {
 

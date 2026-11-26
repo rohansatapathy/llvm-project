@@ -6,6 +6,7 @@ add_llvm_component_library(LLVMLC2KDesc
   LC2KTargetStreamer.cpp
   LC2KAsmBackend.cpp
   LC2KELFObjectWriter.cpp
+  LC2KELFStreamer.cpp
 
   LINK_COMPONENTS
   CodeGenTypes
