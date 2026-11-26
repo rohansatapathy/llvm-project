@@ -1,0 +1,29 @@
+# An unrecognized relocation type is a normal error, not a crash.
+
+# RUN: yaml2obj %s -o %t.o
+# RUN: not ld.lld %t.o -o /dev/null 2>&1 | FileCheck %s --implicit-check-not=error:
+
+# CHECK: error: {{.*}}.o:(.text+0x0): unknown relocation (6) against symbol foo
+
+!ELF
+FileHeader:
+  Class:   ELFCLASS32
+  Data:    ELFDATA2LSB
+  Type:    ET_REL
+  Machine: EM_LC2K
+Sections:
+  - Name:    .text
+    Type:    SHT_PROGBITS
+    Flags:   [ SHF_ALLOC, SHF_EXECINSTR ]
+    Content: "00000000"
+  - Name: .rela.text
+    Type: SHT_RELA
+    Info: .text
+    Relocations:
+      - Offset: 0x0
+        Symbol: foo
+        Type:   0x6
+Symbols:
+  - Name:    foo
+    Section: .text
+    Binding: STB_GLOBAL
