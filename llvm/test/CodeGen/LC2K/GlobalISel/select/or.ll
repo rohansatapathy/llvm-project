@@ -14,7 +14,7 @@ define i32 @or_regs(i32 %a, i32 %b) {
 ; NAND-NEXT:  nand 2 2 2
 ; NAND-NEXT:  nand 1 1 1
 ; NAND-NEXT:  nand 1 2 1
-; NAND-NEXT:  jalr 15 2
+; NAND-NEXT:  jalr 15 0
   %r = or i32 %a, %b
   ret i32 %r
 }
@@ -29,7 +29,7 @@ define i32 @nor_regs(i32 %a, i32 %b) {
 ; NAND-NEXT:  nand 1 1 1
 ; NAND-NEXT:  nand 1 2 1
 ; NAND-NEXT:  nand 1 1 1
-; NAND-NEXT:  jalr 15 2
+; NAND-NEXT:  jalr 15 0
   %o = or i32 %a, %b
   %r = xor i32 %o, -1
   ret i32 %r

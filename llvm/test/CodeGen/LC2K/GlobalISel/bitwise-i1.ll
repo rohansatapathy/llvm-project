@@ -1,6 +1,7 @@
 ; i1 and/or/xor of two comparisons (what clang emits for `a == b && b == c`
 ; and friends at -O1 and above) must make it through instruction selection.
 ; RUN: llc -mtriple=lc2k -global-isel -verify-machineinstrs -stop-after=instruction-select < %s | FileCheck %s
+; RUN: llc -mtriple=lc2k -mcpu=phobos -global-isel -verify-machineinstrs -stop-after=instruction-select < %s | FileCheck %s
 
 ; CHECK-LABEL: name: logical_and
 ; CHECK-NOT: G_AND

@@ -36,12 +36,12 @@ define i32 @f(i32 %a, i32 %b) {
 ; PHOBOS-NEXT: beq 0 0 6
 ; PHOBOS-NEXT: 00 00 00 00 add 0 0 0
 ; PHOBOS-NEXT: 00 00 00 00 add 0 0 0
-; PHOBOS-NEXT: jalr 15 2
+; PHOBOS-NEXT: jalr 15 0
 ; PHOBOS-NEXT: 00 00 00 00 add 0 0 0
 ; PHOBOS-NEXT: 00 00 00 00 add 0 0 0
 ; PHOBOS-NEXT: 00 00 00 00 add 0 0 0
 ; PHOBOS-NEXT: add 2 0 1
-; PHOBOS-NEXT: jalr 15 2
+; PHOBOS-NEXT: jalr 15 0
 entry:
   %c = icmp eq i32 %a, %b
   br i1 %c, label %t, label %e

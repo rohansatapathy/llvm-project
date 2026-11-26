@@ -113,10 +113,10 @@ def JALR_CALL : LC2KInstJType<OPC_JALR>;
 // but unlike JALR this form is not a return: it's a mid-function branch
 // with real successors (the switch's case blocks), so it must not carry
 // isReturn (which would make later passes treat it as having no
-// successors) or isCall (it doesn't fall through). The discarded
-// return-address write goes to R0 (hardwired zero), exactly like the real
-// JALR return sequence discards its own equivalent write (see
-// LC2KCallLowering::lowerReturn). isCodeGenOnly for the same reason as
+// successors) or isCall (it doesn't fall through). The return-address
+// write is discarded exactly like the real JALR return sequence's (see
+// LC2KCallLowering::lowerReturn): to R0 on CPUs that hardwire it to zero,
+// otherwise to a dead vreg. isCodeGenOnly for the same reason as
 // JALR_CALL: assembly should only ever spell this encoding as `jalr`, and
 // the disassembler decodes it back to plain JALR.
 let isIndirectBranch = true, isTerminator = true, isBarrier = true,

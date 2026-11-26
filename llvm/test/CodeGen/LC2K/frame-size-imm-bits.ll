@@ -17,7 +17,7 @@
 ; PHOBOS-NEXT: sw 2 1 0
 ; PHOBOS-NEXT: lw 14 1 599999
 ; PHOBOS-NEXT: addi 14 14 600000
-; PHOBOS-NEXT: jalr 15 2
+; PHOBOS-NEXT: jalr 15 0
 
 define i32 @big_frame(i32 %i) {
   %buf = alloca [600000 x i32]

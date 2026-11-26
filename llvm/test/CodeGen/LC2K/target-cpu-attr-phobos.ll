@@ -7,7 +7,7 @@
 ; RUN:   | FileCheck %s --check-prefix=DEFAULT
 
 ; CHECK-NOT: LLVM ERROR
-; CHECK: phobos_cpu jalr 15 1
+; CHECK: phobos_cpu jalr 15 0
 
 ; DEFAULT: LLVM ERROR: LC2K: function 'phobos_cpu' has target-cpu 'phobos', but the module is being compiled for 'eecs470'; mixing CPUs in one module is not supported
 

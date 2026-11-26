@@ -11,7 +11,7 @@
 ;
 ; PHOBOS-LABEL: c_524287
 ; PHOBOS-NEXT:  addi 0 1 524287
-; PHOBOS-NEXT:  jalr 15 2
+; PHOBOS-NEXT:  jalr 15 0
 define i32 @c_524287() {
   ret i32 524287
 }
@@ -22,7 +22,7 @@ define i32 @c_524287() {
 ;
 ; PHOBOS-LABEL: c_m524288
 ; PHOBOS-NEXT:  addi 0 1 -524288
-; PHOBOS-NEXT:  jalr 15 2
+; PHOBOS-NEXT:  jalr 15 0
 define i32 @c_m524288() {
   ret i32 -524288
 }
@@ -37,7 +37,7 @@ define i32 @c_m524288() {
 ;
 ; PHOBOS-LABEL: c_524288
 ; PHOBOS-NEXT:  addi 0 1 524288
-; PHOBOS-NEXT:  jalr 15 2
+; PHOBOS-NEXT:  jalr 15 0
 define i32 @c_524288() {
   ret i32 524288
 }
@@ -52,7 +52,7 @@ define i32 @c_524288() {
 ;
 ; PHOBOS-LABEL: c_m524289
 ; PHOBOS-NEXT:  addi 0 1 -524289
-; PHOBOS-NEXT:  jalr 15 2
+; PHOBOS-NEXT:  jalr 15 0
 define i32 @c_m524289() {
   ret i32 -524289
 }
@@ -67,7 +67,7 @@ define i32 @c_m524289() {
 ;
 ; PHOBOS-LABEL: c_1048575
 ; PHOBOS-NEXT:  addi 0 1 1048575
-; PHOBOS-NEXT:  jalr 15 2
+; PHOBOS-NEXT:  jalr 15 0
 define i32 @c_1048575() {
   ret i32 1048575
 }
@@ -82,7 +82,7 @@ define i32 @c_1048575() {
 ;
 ; PHOBOS-LABEL: c_m1048576
 ; PHOBOS-NEXT:  addi 0 1 -1048576
-; PHOBOS-NEXT:  jalr 15 2
+; PHOBOS-NEXT:  jalr 15 0
 define i32 @c_m1048576() {
   ret i32 -1048576
 }

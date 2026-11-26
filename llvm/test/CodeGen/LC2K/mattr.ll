@@ -14,7 +14,7 @@
 ; RUN:   | FileCheck %s --check-prefix=PHOBOS
 
 ; CHECK-NOT: LLVM ERROR
-; CHECK: f jalr 15 1
+; CHECK: f jalr 15 {{[0-9]+}}
 
 ; NO-NOR: LLVM ERROR: LC2K: changes individual target features (-nor) of CPU 'eecs470'; only the presets selected by -mcpu are supported
 ; NO-ENC: LLVM ERROR: LC2K: changes individual target features (-enc-eecs470) of CPU 'eecs470'; only the presets selected by -mcpu are supported

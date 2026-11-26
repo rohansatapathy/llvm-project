@@ -208,9 +208,10 @@ bool LC2KCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   assert(!SwiftErrorVReg && "attempt to use unsupported swifterror");
   assert(!Val == VRegs.empty() && "Return value without a vreg");
 
-  // The discarded return-address write goes to a fresh dead vreg rather
-  // than R0: R0 being zero is a software convention, not a hardware
-  // guarantee, so writing R0 directly would clobber it. EarlyClobber is
+  // The discarded return-address write goes to R0 on CPUs that hardwire it
+  // to zero. Elsewhere it goes to a fresh dead vreg instead: R0 being zero
+  // is then a software convention, not a hardware guarantee, so writing R0
+  // directly would clobber it. For the vreg, EarlyClobber is
   // required too: this instruction also carries a non-killed implicit use
   // of the ABI return-value register(s) (added below by the Handler) to
   // mark them live out of the function. Without EarlyClobber, ordinary
@@ -223,7 +224,9 @@ bool LC2KCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   // instruction's uses are read, so it's forced to avoid every operand on
   // it, including those implicit return-value uses.
   Register Discard =
-      MIRBuilder.getMRI()->createVirtualRegister(&LC2K::GPRRegClass);
+      MIRBuilder.getMF().getSubtarget<LC2KSubtarget>().hasHardwiredR0()
+          ? Register(LC2K::R0)
+          : MIRBuilder.getMRI()->createVirtualRegister(&LC2K::GPRRegClass);
   MachineInstrBuilder Ret =
       MIRBuilder.buildInstrNoInsert(LC2K::JALR)
           .addReg(Discard, RegState::Define | RegState::Dead |

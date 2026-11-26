@@ -17,7 +17,15 @@ class LC2KReg<bits<4> num, string n> : Register<n> {
     let HWEncoding{3-0} = num;
 }
 
+// R0 always reads as zero. On phobos the hardware guarantees it, so codegen
+// also writes R0 to discard values (e.g. JALR's return address). On eecs470
+// it is a software convention: R0 is reserved and codegen never writes it.
+// Either way it is constant within a function. Without isConstant, the R0
+// defs on phobos would make MachineRegisterInfo::isConstantPhysReg(R0) false,
+// so passes that rely on it (MachineLICM, MachineCSE, ...) would stop treating
+// reads of R0 as constant.
 foreach i = 0-15 in {
+    let isConstant = !eq(i, 0) in
     def R#i : LC2KReg<i, ""#i>, DwarfRegNum<[i]>;
 }
 
