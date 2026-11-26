@@ -45,11 +45,14 @@ std::unique_ptr<MCObjectTargetWriter> createLC2KELFObjectWriter(uint8_t OSABI);
 #define GET_REGINFO_ENUM
 #include "LC2KGenRegisterInfo.inc"
 
+// Defines symbolic names for the LC2K subtarget features (LC2K::FeatureNOR,
+// ...). Must precede the instruction info, whose predicate checks use them.
+#define GET_SUBTARGETINFO_ENUM
+#include "LC2KGenSubtargetInfo.inc"
+
 // Defines symbolic names for the LC2K instructions.
 #define GET_INSTRINFO_ENUM
 #define GET_INSTRINFO_MC_HELPER_DECLS
 #include "LC2KGenInstrInfo.inc"
-
-// NOTE: LC2K has no subtargets, so not including the enum here.
 
 #endif // LLVM_LIB_TARGET_LC2K_MCTARGETDESC_LC2KMCTARGETDESC_H

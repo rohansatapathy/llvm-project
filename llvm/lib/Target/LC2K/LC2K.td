@@ -8,6 +8,16 @@
 
 include "llvm/Target/Target.td"
 
+//===----------------------------------------------------------------------===//
+// LC2K subtarget features and instruction predicates.
+//===----------------------------------------------------------------------===//
+
+include "LC2KFeatures.td"
+
+//===----------------------------------------------------------------------===//
+// Registers, calling conventions, instruction descriptions.
+//===----------------------------------------------------------------------===//
+
 include "LC2KRegisterInfo.td"
 include "LC2KCallingConv.td"
 include "LC2KInstrFormats.td"
@@ -15,6 +25,16 @@ include "LC2KInstrInfo.td"
 include "GISel/LC2KRegisterBanks.td"
 
 defm : RemapAllTargetPseudoPointerOperands<GPR>;
+
+//===----------------------------------------------------------------------===//
+// LC2K processors supported.
+//===----------------------------------------------------------------------===//
+
+include "LC2KProcessors.td"
+
+//===----------------------------------------------------------------------===//
+// Define the LC2K target.
+//===----------------------------------------------------------------------===//
 
 def LC2KInstrInfo : InstrInfo {}
 
@@ -24,5 +44,3 @@ def LC2K : Target {
     let InstructionSet = LC2KInstrInfo;
     let AssemblyWriters = [LC2KInstPrinter];
 }
-
-def : ProcessorModel<"generic", NoSchedModel, []>;
