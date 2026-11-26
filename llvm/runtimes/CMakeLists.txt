@@ -164,10 +164,10 @@ function(builtin_default_target compiler_rt_path)
 endfunction()
 
 function(builtin_register_target compiler_rt_path name)
-  cmake_parse_arguments(ARG "" "" "DEPENDS;CMAKE_ARGS;EXTRA_ARGS" ${ARGN})
+  cmake_parse_arguments(ARG "" "BASE_NAME" "DEPENDS;CMAKE_ARGS;EXTRA_ARGS" ${ARGN})
 
   set(${name}_extra_args ${ARG_CMAKE_ARGS})
-  append_passthrough_options(${name}_extra_args BUILTINS ${name})
+  append_passthrough_options(${name}_extra_args BUILTINS "${ARG_BASE_NAME};${name}")
 
   llvm_ExternalProject_Add(builtins-${name}
                            ${compiler_rt_path}/lib/builtins
@@ -236,6 +236,27 @@ if(compiler_rt_path)
     add_dependencies(builtins builtins-${target})
     add_dependencies(install-builtins install-builtins-${target})
     add_dependencies(install-builtins-stripped install-builtins-${target}-stripped)
+  endforeach()
+
+  # Builtins multilibs, analogous to LLVM_RUNTIME_MULTILIBS: each multilib
+  # <ml> builds the builtins for every triple in LLVM_BUILTIN_MULTILIB_<ml>_TARGETS
+  # into a <ml> subdirectory of that triple's runtime directory. Options are
+  # passed through from BUILTINS_<triple>_* and then BUILTINS_<triple>+<ml>_*,
+  # e.g. BUILTINS_<triple>+<ml>_CMAKE_C_FLAGS to select a CPU.
+  foreach(multilib ${LLVM_BUILTIN_MULTILIBS})
+    foreach(name ${LLVM_BUILTIN_MULTILIB_${multilib}_TARGETS})
+      builtin_register_target(${compiler_rt_path} ${name}+${multilib}
+        DEPENDS clang-resource-headers
+        CMAKE_ARGS -DLLVM_DEFAULT_TARGET_TRIPLE=${name}
+                   -DCOMPILER_RT_LIBDIR_SUBDIR=${multilib}
+        BASE_NAME ${name}
+        EXTRA_ARGS TARGET_TRIPLE ${name})
+
+      add_dependencies(builtins builtins-${name}+${multilib})
+      add_dependencies(install-builtins install-builtins-${name}+${multilib})
+      add_dependencies(install-builtins-stripped
+                       install-builtins-${name}+${multilib}-stripped)
+    endforeach()
   endforeach()
   set(builtins_dep builtins)
   # We don't need to depend on the builtins if we're building instrumented

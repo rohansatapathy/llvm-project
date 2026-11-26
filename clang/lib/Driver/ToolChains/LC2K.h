@@ -37,8 +37,7 @@ namespace toolchains {
 class LLVM_LIBRARY_VISIBILITY LC2KToolChain : public ToolChain {
 public:
   LC2KToolChain(const Driver &D, const llvm::Triple &Triple,
-                const llvm::opt::ArgList &Args)
-      : ToolChain(D, Triple, Args) {}
+                const llvm::opt::ArgList &Args);
 
   const char *getDefaultLinker() const override { return "ld.lld"; }
 

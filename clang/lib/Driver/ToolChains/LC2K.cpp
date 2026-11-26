@@ -13,6 +13,7 @@
 #include "clang/Driver/InputInfo.h"
 #include "clang/Options/Options.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/Path.h"
 
 using namespace llvm::opt;
 using namespace clang;
@@ -44,6 +45,27 @@ void lc2k::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(JA, *this,
                                          ResponseFileSupport::AtFileCurCP(),
                                          Exec, CmdArgs, Inputs, Output));
+}
+
+LC2KToolChain::LC2KToolChain(const Driver &D, const llvm::Triple &Triple,
+                             const ArgList &Args)
+    : ToolChain(D, Triple, Args) {
+  // The CPUs use different instruction encodings and lld refuses to mix them,
+  // so the runtime libraries are built once per CPU, into a subdirectory of
+  // the per-target runtime directory named after the CPU (see
+  // LLVM_BUILTIN_MULTILIBS), e.g. lib/lc2k-unknown-none/phobos/.
+  std::string CPU = tools::getCPUName(D, Args, Triple);
+  if (CPU.empty() || CPU == "generic")
+    CPU = "eecs470";
+  if (std::optional<std::string> RuntimePath = getRuntimePath()) {
+    for (std::string &Path : getLibraryPaths()) {
+      if (Path != *RuntimePath)
+        continue;
+      SmallString<128> P(Path);
+      llvm::sys::path::append(P, CPU);
+      Path = std::string(P);
+    }
+  }
 }
 
 Tool *LC2KToolChain::buildLinker() const { return new lc2k::Linker(*this); }

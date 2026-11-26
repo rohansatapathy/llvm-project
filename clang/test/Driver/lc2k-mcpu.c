@@ -19,3 +19,12 @@
 // GENERIC:    "-cc1" {{.*}} "-target-cpu" "generic"
 // AS-EECS470: "-cc1as" {{.*}} "-target-cpu" "eecs470"
 // AS-PHOBOS:  "-cc1as" {{.*}} "-target-cpu" "phobos"
+
+// The builtins are built once per CPU (see LLVM_BUILTIN_MULTILIBS), and the
+// link uses the library for the selected CPU.
+// RUN: %clang -### --target=lc2k-unknown-none %s 2>&1 | FileCheck %s --check-prefix=RT-EECS470
+// RUN: %clang -### --target=lc2k-unknown-none -mcpu=generic %s 2>&1 | FileCheck %s --check-prefix=RT-EECS470
+// RUN: %clang -### --target=lc2k-unknown-none -mcpu=phobos %s 2>&1 | FileCheck %s --check-prefix=RT-PHOBOS
+
+// RT-EECS470: "{{[^"]*}}lc2k-unknown-none{{/|\\\\}}eecs470{{/|\\\\}}libclang_rt.builtins.a"
+// RT-PHOBOS:  "{{[^"]*}}lc2k-unknown-none{{/|\\\\}}phobos{{/|\\\\}}libclang_rt.builtins.a"
