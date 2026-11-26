@@ -52,6 +52,9 @@ class LC2KAsmParser : public MCTargetAsmParser {
 
   ParseStatus parseDirective(AsmToken DirectiveID) override;
 
+  // Report an error at Loc if current CPU doesn't implement Opcode.
+  bool checkInstrSupported(unsigned Opcode, StringRef Mnemonic, SMLoc Loc);
+
   // LC2K doesn't currently support inline assembly, so this function is a
   // stub.
   //
@@ -268,6 +271,30 @@ static std::optional<unsigned> mnemonicToOpcode(StringRef Name) {
       .Default(std::nullopt);
 }
 
+// Returns the subtarget feature an instruction requires, if any.
+static std::optional<unsigned> requiredFeature(unsigned Opcode) {
+  switch (Opcode) {
+  case LC2K::NOR:
+    return LC2K::FeatureNOR;
+  case LC2K::NAND:
+    return LC2K::FeatureNAND;
+  case LC2K::ADDI:
+    return LC2K::FeatureADDI;
+  default:
+    // NOOP is always accepted: without a NOOP opcode it is assembled as
+    // `add 0 0 0` (see matchAndEmitInstruction).
+    return std::nullopt;
+  }
+}
+
+bool LC2KAsmParser::checkInstrSupported(unsigned Opcode, StringRef Mnemonic,
+                                        SMLoc Loc) {
+  std::optional<unsigned> Feature = requiredFeature(Opcode);
+  if (!Feature || getSTI().hasFeature(*Feature))
+    return false;
+  return Error(Loc, "instruction requires: " + Mnemonic);
+}
+
 bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
                                      SMLoc NameLoc, OperandVector &Operands) {
   // Check if the name field is an opcode.
@@ -336,6 +363,10 @@ bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
                        OpcodeToken.getIdentifier() + "'");
     }
 
+    if (checkInstrSupported(*MaybeOpcode, OpcodeToken.getIdentifier(),
+                            OpcodeToken.getLoc()))
+      return true;
+
     if (CurrentSection != Section::Text) {
       return Error(OpcodeToken.getLoc(), "found instruction after .fill");
     }
@@ -349,6 +380,9 @@ bool LC2KAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
                                                 OpcodeToken.getLoc()));
     Lexer.Lex();
   } else {
+    if (checkInstrSupported(*MaybeOpcode, Name, NameLoc))
+      return true;
+
     if (CurrentSection != Section::Text) {
       return Error(NameLoc, "found instruction after .fill");
     }
@@ -489,6 +523,17 @@ bool LC2KAsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   Opcode = mnemonicToOpcode(OpcodeOperand.getToken()).value();
 
   MCInst Inst;
+
+  // CPUs without a NOOP opcode treat `noop` as a pseudo for `add 0 0 0`.
+  if (Opcode == LC2K::NOOP && !getSTI().hasFeature(LC2K::FeatureNOOPInstr)) {
+    Opcode = LC2K::ADD;
+    Inst.setOpcode(Opcode);
+    for (unsigned I = 0; I < 3; ++I)
+      Inst.addOperand(MCOperand::createReg(LC2K::R0));
+    Out.emitInstruction(Inst, getSTI());
+    return false;
+  }
+
   Inst.setOpcode(Opcode);
   for (unsigned i = 1; i < Operands.size(); i++) { // NOLINT
     auto &Op = static_cast<LC2KOperand &>(*Operands[i]);
