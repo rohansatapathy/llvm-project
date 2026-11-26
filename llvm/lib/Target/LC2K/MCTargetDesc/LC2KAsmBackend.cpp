@@ -15,6 +15,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/EndianStream.h"
 #include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
@@ -127,9 +128,9 @@ bool LC2KAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
     return false;
   }
 
-  for (uint64_t i = 0; i < Count; i += 4) { // NOLINT
-    OS.write("\x00\x00\x00\x07", 4);
-  }
+  constexpr uint32_t NoopEncoding = 0x70000000;
+  for (uint64_t i = 0; i < Count; i += 4) // NOLINT
+    support::endian::write<uint32_t>(OS, NoopEncoding, Endian);
 
   return true;
 }
