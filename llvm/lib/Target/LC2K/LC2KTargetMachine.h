@@ -14,6 +14,7 @@
 #define LLVM_LIB_TARGET_LC2K_LC2KTARGETMACHINE_H
 
 #include "LC2KSubtarget.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/CodeGen/CodeGenTargetMachineImpl.h"
 #include <optional>
 
@@ -21,6 +22,10 @@ namespace llvm {
 class LC2KTargetMachine : public CodeGenTargetMachineImpl {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   LC2KSubtarget Subtarget;
+
+  /// "target-features" strings already checked against the CPU's preset, so
+  /// repeated getSubtargetImpl calls don't recompute them.
+  mutable StringSet<> CheckedFeatureStrings;
 
 public:
   LC2KTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
@@ -30,9 +35,12 @@ public:
                     bool JIT);
 
   const LC2KSubtarget *getSubtargetImpl() const { return &Subtarget; }
-  const LC2KSubtarget *getSubtargetImpl(const Function &) const override {
-    return &Subtarget;
-  }
+
+  /// LC2K uses one subtarget for the whole module. A function whose
+  /// "target-cpu" names a different CPU, or whose "target-features" change
+  /// the CPU's preset features, is rejected rather than silently compiled
+  /// for the module's.
+  const LC2KSubtarget *getSubtargetImpl(const Function &F) const override;
 
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 

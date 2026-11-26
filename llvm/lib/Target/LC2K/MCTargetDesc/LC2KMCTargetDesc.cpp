@@ -78,14 +78,40 @@ StringRef LC2K::normalizeCPU(StringRef CPU) {
   return CPU;
 }
 
-void LC2K::validateFeatures(const MCSubtargetInfo &STI) {
-  unsigned NumEncodings = STI.hasFeature(LC2K::FeatureEnc470) +
-                          STI.hasFeature(LC2K::FeatureEncPhobos);
-  if (NumEncodings != 1)
-    reportFatalUsageError("LC2K: exactly one instruction encoding feature "
-                          "(enc-470, enc-phobos) must be enabled; got " +
-                          Twine(NumEncodings) + " for CPU '" + STI.getCPU() +
-                          "'");
+void LC2K::validateFeatures(const MCSubtargetInfo &STI, StringRef FnName) {
+  StringRef CPU = STI.getCPU();
+  if (!STI.isCPUStringValid(CPU))
+    reportFatalUsageError("LC2K: unknown CPU '" + CPU +
+                          "'; use -mcpu=help to list valid CPUs");
+
+  MCSubtargetInfo Preset(STI);
+  Preset.setDefaultFeatures(CPU, CPU, "");
+  const FeatureBitset &PresetBits = Preset.getFeatureBits();
+  const FeatureBitset &Bits = STI.getFeatureBits();
+  if (Bits != PresetBits) {
+    std::string Diff;
+    for (const SubtargetFeatureKV &KV : STI.getAllProcessorFeatures()) {
+      bool Has = Bits.test(KV.Value);
+      if (Has == PresetBits.test(KV.Value))
+        continue;
+      if (!Diff.empty())
+        Diff += ',';
+      Diff += Has ? '+' : '-';
+      Diff += KV.key();
+    }
+    std::string Who =
+        FnName.empty() ? "" : ("function '" + FnName + "' ").str();
+    reportFatalUsageError("LC2K: " + Twine(Who) +
+                          "changes individual target features (" + Diff +
+                          ") of CPU '" + CPU +
+                          "'; only the presets selected by -mcpu are "
+                          "supported");
+  }
+
+  assert(STI.hasFeature(LC2K::FeatureEnc470) +
+                 STI.hasFeature(LC2K::FeatureEncPhobos) ==
+             1 &&
+         "Every LC2K CPU must enable exactly one encoding feature");
 }
 
 static MCStreamer *

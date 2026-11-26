@@ -13,6 +13,7 @@
 #include "LC2KTargetMachine.h"
 #include "LC2K.h"
 #include "LC2KMachineFunctionInfo.h"
+#include "MCTargetDesc/LC2KMCTargetDesc.h"
 #include "TargetInfo/LC2KTargetInfo.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
@@ -21,6 +22,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/PassRegistry.h"
@@ -66,6 +68,34 @@ LC2KTargetMachine::LC2KTargetMachine(const Target &T, const Triple &TT,
   // than relying on the -global-isel command-line flag.
   this->Options.EnableGlobalISel = true;
   initAsmInfo();
+}
+
+const LC2KSubtarget *
+LC2KTargetMachine::getSubtargetImpl(const Function &F) const {
+  Attribute CPUAttr = F.getFnAttribute("target-cpu");
+  if (CPUAttr.isValid()) {
+    StringRef FnCPU = LC2K::normalizeCPU(CPUAttr.getValueAsString());
+    if (FnCPU != Subtarget.getCPU())
+      reportFatalUsageError("LC2K: function '" + F.getName() +
+                            "' has target-cpu '" + FnCPU +
+                            "', but the module is being compiled for '" +
+                            Subtarget.getCPU() +
+                            "'; mixing CPUs in one module is not supported");
+  }
+
+  Attribute FSAttr = F.getFnAttribute("target-features");
+  if (!FSAttr.isValid())
+    return &Subtarget;
+  StringRef FnFS = FSAttr.getValueAsString();
+  if (FnFS == Subtarget.getFeatureString() ||
+      CheckedFeatureStrings.contains(FnFS))
+    return &Subtarget;
+
+  MCSubtargetInfo FnSTI(Subtarget);
+  FnSTI.setDefaultFeatures(Subtarget.getCPU(), Subtarget.getCPU(), FnFS);
+  LC2K::validateFeatures(FnSTI, F.getName());
+  CheckedFeatureStrings.insert(FnFS);
+  return &Subtarget;
 }
 
 namespace {

@@ -47,8 +47,15 @@ namespace LC2K {
 /// that builds an LC2K subtarget must normalize the CPU first.
 StringRef normalizeCPU(StringRef CPU);
 
-/// Report a fatal error unless exactly one encoding-family feature is set.
-void validateFeatures(const MCSubtargetInfo &STI);
+/// Report a fatal error unless STI's CPU is a known LC2K CPU and its feature
+/// set is exactly that CPU's preset.
+///
+/// LC2K features describe fixed hardware variants and are not independent,
+/// so the only supported configurations are the ones selected by -mcpu.
+/// Feature strings that restate preset features are accepted; ones that
+/// change the preset are rejected. FnName names the function whose
+/// "target-features" are being checked, if any, for the error message.
+void validateFeatures(const MCSubtargetInfo &STI, StringRef FnName = "");
 
 } // namespace LC2K
 
