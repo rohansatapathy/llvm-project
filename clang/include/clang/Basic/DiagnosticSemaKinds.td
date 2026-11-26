@@ -3481,6 +3481,9 @@ def warn_unsupported_target_attribute
               "attribute string; '%select{target|target_clones|target_version}3' "
               "attribute ignored">,
       InGroup<IgnoredAttributes>;
+def err_target_attribute_cpu_mismatch : Error<
+  "CPU '%0' in the 'target' attribute differs from the CPU this file is "
+  "compiled for; mixing CPUs in one file is not supported for this target">;
 def err_attribute_unsupported
     : Error<"%0 attribute is not supported on targets missing %1;"
             " specify an appropriate -march= or -mcpu=">;

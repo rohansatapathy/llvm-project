@@ -3672,6 +3672,11 @@ bool Sema::checkTargetAttr(SourceLocation LiteralLoc, StringRef AttrStr) {
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
            << Unknown << CPU << ParsedAttrs.CPU << Target;
 
+  if (!ParsedAttrs.CPU.empty() &&
+      !Context.getTargetInfo().isCompatibleTargetAttrCPU(ParsedAttrs.CPU))
+    return Diag(LiteralLoc, diag::err_target_attribute_cpu_mismatch)
+           << ParsedAttrs.CPU;
+
   if (!ParsedAttrs.Tune.empty() &&
       !Context.getTargetInfo().isValidCPUName(ParsedAttrs.Tune))
     return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)

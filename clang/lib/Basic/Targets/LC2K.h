@@ -13,6 +13,14 @@ class LLVM_LIBRARY_VISIBILITY LC2KTargetInfo : public TargetInfo {
 
   static const char *const GCCRegNames[];
 
+  /// The CPU, normalized by normalizeCPU. Set by -target-cpu (the driver
+  /// always passes one); eecs470 when none is given.
+  std::string CPU = "eecs470";
+
+  /// Maps the aliases "" and "generic" to "eecs470", the default CPU, as
+  /// the backend does (LC2K::normalizeCPU).
+  static StringRef normalizeCPU(StringRef Name);
+
 public:
   LC2KTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
@@ -45,6 +53,23 @@ public:
 
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+
+  bool isValidCPUName(StringRef Name) const override;
+  void fillValidCPUList(SmallVectorImpl<StringRef> &Values) const override;
+  bool setCPU(StringRef Name) override;
+
+  // Each CPU is a fixed feature set (see LC2KProcessors.td): the backend
+  // rejects any feature change, so clang does too, with a proper diagnostic
+  // instead of a backend fatal error. Clang itself never adds LC2K features.
+  bool handleTargetFeatures(std::vector<std::string> &Features,
+                            DiagnosticsEngine &Diags) override;
+  bool isValidFeatureName(StringRef Feature) const override { return false; }
+
+  // CPUs use different instruction encodings and cannot be mixed in one
+  // module.
+  bool isCompatibleTargetAttrCPU(StringRef Name) const override {
+    return normalizeCPU(Name) == CPU;
+  }
 
   llvm::SmallVector<Builtin::InfosShard> getTargetBuiltins() const override {
     // LC2K doesn't have any hardware-accelerated builtins.

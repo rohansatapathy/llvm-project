@@ -1411,6 +1411,13 @@ public:
     return true;
   }
 
+  /// Determine whether a function may be compiled for \p Name, given in a
+  /// target("arch=...") attribute, while the rest of the translation unit
+  /// is compiled for this TargetInfo's CPU. \p Name has already been checked
+  /// with isValidCPUName. Targets whose CPUs cannot be mixed in one module
+  /// override this.
+  virtual bool isCompatibleTargetAttrCPU(StringRef Name) const { return true; }
+
   /// Determine whether this TargetInfo supports the given CPU name for
   /// tuning.
   virtual bool isValidTuneCPUName(StringRef Name) const {

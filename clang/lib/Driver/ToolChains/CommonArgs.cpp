@@ -860,6 +860,11 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   case llvm::Triple::lanai:
     return getLanaiTargetCPU(Args);
 
+  case llvm::Triple::lc2k:
+    if (const Arg *A = Args.getLastArg(options::OPT_mcpu_EQ))
+      return A->getValue();
+    return "eecs470";
+
   case llvm::Triple::systemz:
     return systemz::getSystemZTargetCPU(Args, T);
 
