@@ -45,15 +45,20 @@ LC2KAsmStreamer::LC2KAsmStreamer(MCContext &Context,
 
 bool LC2KAsmStreamer::emitSymbolAttribute(MCSymbol *Symbol,
                                           MCSymbolAttr Attribute) {
-  // LC2K assembly symbols are local unless marked .globl, so there is nothing
-  // to print.
+  // LC2K assembly symbols are local unless marked .globl or .weak, so there is
+  // nothing to print.
   if (Attribute == MCSA_Local)
     return true;
 
-  if (Attribute != MCSA_Global)
+  if (Attribute == MCSA_Global)
+    OS << MAI->getGlobalDirective();
+  else if (Attribute == MCSA_Weak)
+    OS << MAI->getWeakDirective();
+  else if (Attribute == MCSA_WeakReference) // extern_weak declarations
+    OS << MAI->getWeakRefDirective();
+  else
     return false;
 
-  OS << MAI->getGlobalDirective();
   Symbol->print(OS, MAI);
   emitEOL();
 

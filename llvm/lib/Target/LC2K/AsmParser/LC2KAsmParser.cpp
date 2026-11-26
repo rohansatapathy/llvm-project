@@ -587,8 +587,14 @@ ParseStatus LC2KAsmParser::parseDirective(AsmToken DirectiveID) {
     return ParseStatus::Success;
   }
 
-  if (IDVal ==
-      StringRef(getContext().getAsmInfo().getGlobalDirective()).trim()) {
+  const MCAsmInfo &MAI = getContext().getAsmInfo();
+  std::optional<MCSymbolAttr> Binding;
+  if (IDVal == StringRef(MAI.getGlobalDirective()).trim())
+    Binding = MCSA_Global;
+  else if (IDVal == StringRef(MAI.getWeakDirective()).trim())
+    Binding = MCSA_Weak;
+
+  if (Binding) {
     AsmToken LabelToken = Lexer.getTok();
     SMLoc LabelLoc = LabelToken.getLoc();
 
@@ -599,13 +605,14 @@ ParseStatus LC2KAsmParser::parseDirective(AsmToken DirectiveID) {
     MCSymbol *Sym = getContext().getOrCreateSymbol(LabelToken.getIdentifier());
     Lexer.Lex();
     Parser.eatToEndOfStatement();
-    getStreamer().emitSymbolAttribute(Sym, MCSA_Global);
+    getStreamer().emitSymbolAttribute(Sym, *Binding);
     return ParseStatus::Success;
   }
 
-  // LC2K doesn't support any directives except .fill and .globl, so any other
-  // dot-prefixed word is a label, such as the compiler's .L private symbols.
-  // Handle the statement here to suppress fallthrough paths in AsmParser.
+  // LC2K doesn't support any directives except .fill, .globl and .weak, so 
+  // any other dot-prefixed word is a label, such as the compiler's .L 
+  // private symbols. Handle the statement here to suppress fallthrough paths
+  // in AsmParser.
   SmallVector<std::unique_ptr<MCParsedAsmOperand>, 8> Operands;
   ParseInstructionInfo Info;
   if (parseInstruction(Info, IDVal, IDLoc, Operands))
