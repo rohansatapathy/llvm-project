@@ -182,5 +182,9 @@ def : Pat<(xor GPR:$lhs, GPR:$rhs),
           (NAND (NAND GPR:$lhs, (NAND GPR:$lhs, GPR:$rhs)),
                 (NAND GPR:$rhs, (NAND GPR:$lhs, GPR:$rhs)))>;
 
+// ~a = a NAND a. Takes priority over the general XOR pattern above, which would
+// otherwise materialize -1 and spend four NANDs on it.
+def : Pat<(not GPR:$src), (NAND GPR:$src, GPR:$src)>;
+
 // ~(a | b) = a NOR b
 def : Pat<(not (or GPR:$lhs, GPR:$rhs)), (NOR GPR:$lhs, GPR:$rhs)>;
