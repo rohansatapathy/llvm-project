@@ -26,10 +26,11 @@
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/MathExtras.h"
 
-#define DEBUG_TYPE "lck2-call-lowering"
+#define DEBUG_TYPE "lc2k-call-lowering"
 
 using namespace llvm;
 
+#define GET_CALLING_CONV_IMPL
 #include "LC2KGenCallingConv.inc"
 
 namespace {

@@ -383,8 +383,6 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   getActionDefinitionsBuilder({G_SITOFP, G_UITOFP})
       .libcallFor({{s32, s32}, {s64, s32}, {s32, s64}, {s64, s64}})
       .clampScalar(0, s32, s64);
-
-  getLegacyLegalizerInfo().computeTables();
 }
 
 bool LC2KLegalizerInfo::legalizeCustom(

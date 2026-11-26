@@ -1,4 +1,4 @@
-# RUN: llc -march=lc2k -run-pass=regbankselect -verify-machineinstrs %s -o - | FileCheck %s
+# RUN: llc -march=lc2k -run-pass=reg-bank-select -verify-machineinstrs %s -o - | FileCheck %s
 --- |
   define i32 @g() {
     ret i32 42

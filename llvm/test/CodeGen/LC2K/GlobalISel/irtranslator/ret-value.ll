@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 ; CHECK: name: f
 ; CHECK: %0:_(s32) = G_CONSTANT i32 42

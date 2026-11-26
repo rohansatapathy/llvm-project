@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 ; A call with more than 4 arguments must spill the overflow arguments to the
 ; stack (via LC2KOutgoingArgHandler::getStackAddress), and reserve that space

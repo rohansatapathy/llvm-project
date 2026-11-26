@@ -93,9 +93,6 @@ private:
   bool selectCall(MachineInstr &I) const;
   bool selectAddrEs(MachineInstr &I) const;
 
-  void renderFrameIndex(MachineInstrBuilder &MIB, const MachineInstr &MI,
-                        int OpIdx) const;
-
   /// Appends the (base, offset) operand pair used by LW/SW/ADDI-style
   /// addressing for a pointer value held in PtrReg, folding a directly
   /// visible G_FRAME_INDEX / G_GLOBAL_VALUE / constant-offset G_PTR_ADD into
@@ -650,14 +647,6 @@ bool LC2KInstructionSelector::selectAddrEs(MachineInstr &I) const {
                 .add(I.getOperand(1)));
   I.eraseFromParent();
   return true;
-}
-
-void LC2KInstructionSelector::renderFrameIndex(MachineInstrBuilder &MIB,
-                                               const MachineInstr &MI,
-                                               int OpIdx) const {
-  assert(MI.getOpcode() == TargetOpcode::G_FRAME_INDEX && OpIdx == -1 &&
-         "Expected G_FRAME_INDEX");
-  MIB.add(MI.getOperand(1));
 }
 
 namespace llvm {

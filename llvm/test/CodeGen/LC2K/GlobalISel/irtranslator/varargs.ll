@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 ; CC_LC2K's register-assignment rule is gated by CCIfNotVarArg, so for a
 ; variadic function every argument -- including fixed ones before the `...`

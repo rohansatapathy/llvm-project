@@ -149,15 +149,8 @@ def simm20 : ImmLeaf<i32, [{ return isInt<20>(Imm); }]>;
 // and are handled by selectConstant instead.
 def : Pat<(i32 simm20:$imm), (ADDI (i32 R0), simm20:$imm)>;
 
-// From RISC-V -- needed since `frameindex` matches entire instruction, not
-// specific operand of G_FRAME_INDEX
-def to_tframeindex : SDNodeXForm<frameindex, [{
-  return CurDAG->getTargetFrameIndex(N->getIndex(), N->getValueType(0));
-}]>;
-
-def : GICustomOperandRenderer<"renderFrameIndex">,
-      GISDNodeXFormEquiv<to_tframeindex>;
-
+// to_tframeindex (and its GlobalISel renderer, renderFrameIndex) come from
+// common code: TargetSelectionDAG.td / GlobalISel/SelectionDAGCompat.td.
 def : Pat<(frameindex:$fi), (ADDI (iPTR (to_tframeindex $fi)), 0)>;
 
 def : Pat<(br bb:$target), (BEQ_UNCOND (i32 R0), (i32 R0), bb:$target)>;

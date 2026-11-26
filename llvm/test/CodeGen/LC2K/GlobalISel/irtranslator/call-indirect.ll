@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 ; An indirect call through a function-pointer value takes the Info.Callee
 ; isReg() path, unlike the isGlobal()/G_GLOBAL_VALUE path a direct call to a

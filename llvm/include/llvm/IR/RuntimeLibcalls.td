@@ -71,6 +71,7 @@ def IsAVR : LibcallPredicate<[{TT.getArch() == Triple::avr}]>;
 def IsDXIL : LibcallPredicate<[{TT.isDXIL()}]>;
 def IsHexagon : LibcallPredicate<[{TT.getArch() == Triple::hexagon}]>;
 def IsLanai : LibcallPredicate<[{TT.getArch() == Triple::lanai}]>;
+def IsLC2K : LibcallPredicate<[{TT.getArch() == Triple::lc2k}]>;
 def IsMSP430 : LibcallPredicate<[{TT.getArch() == Triple::msp430}]>;
 def IsNVPTX : LibcallPredicate<[{TT.isNVPTX()}]>;
 
@@ -2923,7 +2924,7 @@ def LanaiSystemLibrary
 // LC2K Runtime Libcalls
 //===----------------------------------------------------------------------===//
 
-def isLC2K : RuntimeLibcallPredicate<"TT.getArch() == Triple::lc2k">;
+def isLC2K : RuntimeLibcallAvailability<(all_of IsLC2K)>;
 
 // LC2K has no shift hardware; 32-bit shifts are synthesized by the GISel
 // legalizer as calls to LC2K-specific names for the existing SHL_I32/

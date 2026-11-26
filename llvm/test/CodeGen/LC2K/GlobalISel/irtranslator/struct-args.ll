@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 %s4 = type { i32, i32, i32, i32 }
 %s6 = type { i32, i32, i32, i32, i32, i32 }

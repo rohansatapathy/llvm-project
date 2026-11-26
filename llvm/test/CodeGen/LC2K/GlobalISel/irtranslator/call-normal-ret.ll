@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 ; A call whose return value fits in RetCC_LC2K's single return register
 ; (unlike ir-translator-sret.ll) goes through the normal LC2KCallReturnHandler

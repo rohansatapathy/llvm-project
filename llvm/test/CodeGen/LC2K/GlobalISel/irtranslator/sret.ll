@@ -1,4 +1,4 @@
-; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=irtranslator < %s | FileCheck %s
+; RUN: llc -march=lc2k -global-isel -verify-machineinstrs -stop-after=ir-translator < %s | FileCheck %s
 
 ; A 4-field struct return doesn't fit in RetCC_LC2K's single return register,
 ; so it gets demoted to a hidden sret pointer argument. inner is the callee:
