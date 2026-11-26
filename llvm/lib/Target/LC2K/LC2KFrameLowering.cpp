@@ -14,6 +14,7 @@
 
 #include "LC2KInstrInfo.h"
 #include "LC2KRegisterInfo.h"
+#include "LC2KSubtarget.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -40,11 +41,13 @@ void LC2KFrameLowering::emitPrologue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  // NOTE: Stack frames wider than 20 bits are unsupported, change in future
-  // if needed.
-  if (!isInt<20>(-StackSize))
+  // NOTE: Stack frames wider than ADDI immediate are unsupported, change
+  // in future if needed.
+  unsigned ImmBits = MF.getSubtarget<LC2KSubtarget>().getImmBits();
+  if (!isIntN(ImmBits, -StackSize))
     reportFatalUsageError("LC2K: stack frame size " + Twine(StackSize) +
-                          " exceeds 20-bit ADDI immediate range");
+                          " exceeds " + Twine(ImmBits) +
+                          "-bit ADDI immediate range");
 
   BuildMI(MBB, MBBI, DL, TII.get(LC2K::ADDI), LC2K::SP)
       .addReg(LC2K::SP)
@@ -63,11 +66,13 @@ void LC2KFrameLowering::emitEpilogue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  // NOTE: Stack frames wider than 20 bits are unsupported, change in future
-  // if needed.
-  if (!isInt<20>(StackSize))
+  // NOTE: Stack frames wider than ADDI immediate are unsupported, change
+  // in future if needed.
+  unsigned ImmBits = MF.getSubtarget<LC2KSubtarget>().getImmBits();
+  if (!isIntN(ImmBits, StackSize))
     reportFatalUsageError("LC2K: stack frame size " + Twine(StackSize) +
-                          " exceeds 20-bit ADDI immediate range");
+                          " exceeds " + Twine(ImmBits) +
+                          "-bit ADDI immediate range");
 
   BuildMI(MBB, MBBI, DL, TII.get(LC2K::ADDI), LC2K::SP)
       .addReg(LC2K::SP)

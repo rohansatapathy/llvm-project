@@ -111,6 +111,7 @@ private:
     constrainSelectedInstRegOperands(*MIB, TII, TRI, RBI);
   }
 
+  const LC2KSubtarget &STI;
   const LC2KInstrInfo &TII;
   const LC2KRegisterInfo &TRI;
   const LC2KRegisterBankInfo &RBI;
@@ -133,7 +134,7 @@ private:
 LC2KInstructionSelector::LC2KInstructionSelector(
     const LC2KTargetMachine &TM, const LC2KSubtarget &STI,
     const LC2KRegisterBankInfo &RBI)
-    : TII(static_cast<const LC2KInstrInfo &>(*STI.getInstrInfo())),
+    : STI(STI), TII(static_cast<const LC2KInstrInfo &>(*STI.getInstrInfo())),
       TRI(TII.getRegisterInfo()), RBI(RBI),
 #define GET_GLOBALISEL_PREDICATES_INIT
 #include "LC2KGenGlobalISel.inc"
@@ -249,7 +250,7 @@ bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
   // fails that pattern's s32 type check.
   Register Dst = I.getOperand(0).getReg();
   int64_t Val = I.getOperand(1).getCImm()->getSExtValue();
-  assert(isInt<20>(Val) &&
+  assert(isIntN(STI.getImmBits(), Val) &&
          "wide constants should have been split by the legalizer");
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
                     Dst)
@@ -326,7 +327,7 @@ bool LC2KInstructionSelector::selectPtrAdd(MachineInstr &I) const {
   // ones were split by LC2KLegalizerInfo::legalizeConstant and so take the
   // non-constant path above.
   int64_t WordOff = *Cst;
-  assert(isInt<20>(WordOff) &&
+  assert(isIntN(STI.getImmBits(), WordOff) &&
          "wide constants should have been split by the legalizer");
   constrain(BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(LC2K::ADDI),
                     Dst)
@@ -365,7 +366,7 @@ void LC2KInstructionSelector::appendAddrOperands(
       }
       if (BaseDef->getOpcode() != TargetOpcode::G_GLOBAL_VALUE) {
         int64_t WordOff = *Cst;
-        if (isInt<20>(WordOff)) {
+        if (isIntN(STI.getImmBits(), WordOff)) {
           MIB.addReg(Base);
           MIB.addImm(WordOff);
           return;

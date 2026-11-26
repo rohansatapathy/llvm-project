@@ -469,6 +469,10 @@ bool LC2KLegalizerInfo::legalizeConstant(
 
   // Already a single ADDI in the selector (see selectConstant) --
   // nothing to do.
+  //
+  // FIXME: Phobos has a 21-bit immediate, but this split must stay at 20 bits
+  // until the simm20 selection pattern in LC2KInstrInfo.td gains a 21-bit
+  // Phobos counterpart; the two have to change together.
   if (isInt<20>(Val))
     return true;
 

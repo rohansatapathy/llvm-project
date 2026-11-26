@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LC2KRegisterInfo.h"
+#include "LC2KSubtarget.h"
 
 #include "MCTargetDesc/LC2KMCTargetDesc.h"
 #include "llvm/ADT/BitVector.h"
@@ -87,11 +88,13 @@ bool LC2KRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   int Offset = ObjectFPOffset + StackSize + ObjectInternalOffset;
 
-  // NOTE: stack frames wider than 20 bits are unsupported, change in future
-  // if needed.
-  if (!isInt<20>(Offset))
+  // NOTE: stack frames wider than signed immediate field are unsupported, 
+  // change in future if needed.
+  unsigned ImmBits = MF.getSubtarget<LC2KSubtarget>().getImmBits();
+  if (!isIntN(ImmBits, Offset))
     reportFatalUsageError("LC2K: stack frame offset " + Twine(Offset) +
-                          " exceeds range of 20-bit signed immediate");
+                          " exceeds range of " + Twine(ImmBits) +
+                          "-bit signed immediate");
 
   assert((MI.getOpcode() == LC2K::LW || MI.getOpcode() == LC2K::SW ||
           MI.getOpcode() == LC2K::ADDI) &&
