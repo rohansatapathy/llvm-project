@@ -157,6 +157,7 @@ def : Pat<(br bb:$target), (BEQ_UNCOND (i32 R0), (i32 R0), bb:$target)>;
 
 def : Pat<(add GPR:$lhs, GPR:$rhs), (ADD GPR:$lhs, GPR:$rhs)>;
 
+let Predicates = [HasNAND] in {
 // a - b == a + (~b + 1); ~b via NAND(b,b).
 def : Pat<(sub GPR:$lhs, GPR:$rhs),
           (ADD GPR:$lhs, (ADDI (NAND GPR:$rhs, GPR:$rhs), 1))>;
@@ -166,11 +167,8 @@ def : Pat<(sub GPR:$lhs, GPR:$rhs),
 def : Pat<(and GPR:$lhs, GPR:$rhs),
           (NAND (NAND GPR:$lhs, GPR:$rhs), (NAND GPR:$lhs, GPR:$rhs))>;
 
-// a | b == NOT(NOR(a,b)) == NOR(NOR(a,b), NOR(a,b)).
-def : Pat<(or GPR:$lhs, GPR:$rhs),
-          (NOR (NOR GPR:$lhs, GPR:$rhs), (NOR GPR:$lhs, GPR:$rhs))>;
-
-// a ^ b = (a NAND ~a) NAND (b NAND ~b)
+// a ^ b == (a NAND t) NAND (b NAND t) with t = a NAND b. Four instructions
+// once MachineCSE merges the duplicated NAND(a,b).
 def : Pat<(xor GPR:$lhs, GPR:$rhs),
           (NAND (NAND GPR:$lhs, (NAND GPR:$lhs, GPR:$rhs)),
                 (NAND GPR:$rhs, (NAND GPR:$lhs, GPR:$rhs)))>;
@@ -179,5 +177,19 @@ def : Pat<(xor GPR:$lhs, GPR:$rhs),
 // otherwise materialize -1 and spend four NANDs on it.
 def : Pat<(not GPR:$src), (NAND GPR:$src, GPR:$src)>;
 
+// a | b == ~a NAND ~b. Three instructions; the NOR form below is preferred
+// when available.
+def : Pat<(or GPR:$lhs, GPR:$rhs),
+          (NAND (NAND GPR:$lhs, GPR:$lhs), (NAND GPR:$rhs, GPR:$rhs))>;
+} // Predicates = [HasNAND]
+
+let Predicates = [HasNOR] in {
+// a | b == NOT(NOR(a,b)) == NOR(NOR(a,b), NOR(a,b)). Two instructions once
+// MachineCSE merges the duplicated NOR(a,b).
+let AddedComplexity = 1 in
+def : Pat<(or GPR:$lhs, GPR:$rhs),
+          (NOR (NOR GPR:$lhs, GPR:$rhs), (NOR GPR:$lhs, GPR:$rhs))>;
+
 // ~(a | b) = a NOR b
 def : Pat<(not (or GPR:$lhs, GPR:$rhs)), (NOR GPR:$lhs, GPR:$rhs)>;
+} // Predicates = [HasNOR]
