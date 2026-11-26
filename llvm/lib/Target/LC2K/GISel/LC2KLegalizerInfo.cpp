@@ -13,6 +13,7 @@
 
 #include "LC2KLegalizerInfo.h"
 #include "LC2KMachineFunctionInfo.h"
+#include "LC2KSubtarget.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -26,7 +27,8 @@
 
 using namespace llvm;
 
-LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
+LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST)
+    : ImmBits(ST.getImmBits()) {
   using namespace TargetOpcode;
 
   const LLT s1 = LLT::scalar(1);
@@ -54,9 +56,9 @@ LC2KLegalizerInfo::LC2KLegalizerInfo(const LC2KSubtarget &ST) {
   // whatever GPR Dst gets constrained to.
   // Values that fit a single ADDI immediate stay legal (see
   // selectConstant); wider s32 values are split by legalizeConstant
-  // below into a 12-bit high half shifted into position via the __lc2k_shl
-  // libcall (see legalizeShift) plus a 20-bit low half, since LC2K has no
-  // shift hardware to build them bit-serially inline. p0 is left alone: a
+  // below into a high half shifted into position via the __lc2k_shl
+  // libcall (see legalizeShift) plus an ImmBits-wide low half, since LC2K has
+  // no shift hardware to build them bit-serially inline. p0 is left alone: a
   // null-pointer literal is always G_CONSTANT p0, 0 (see the comment
   // above), so it never needs the wide-value path.
   getActionDefinitionsBuilder(G_CONSTANT)
@@ -467,20 +469,17 @@ bool LC2KLegalizerInfo::legalizeConstant(
     LostDebugLocObserver &LocObserver) const {
   int64_t Val = MI.getOperand(1).getCImm()->getSExtValue();
 
-  // Already a single ADDI in the selector (see selectConstant) --
-  // nothing to do.
-  //
-  // FIXME: Phobos has a 21-bit immediate, but this split must stay at 20 bits
-  // until the simm20 selection pattern in LC2KInstrInfo.td gains a 21-bit
-  // Phobos counterpart; the two have to change together.
-  if (isInt<20>(Val))
+  // Already a single ADDI in the selector (see the simm20/simm21 patterns
+  // in LC2KInstrInfo.td, which must agree with ImmBits) -- nothing to do.
+  if (isIntN(ImmBits, Val))
     return true;
 
   // No shift hardware exists, so split the 32-bit pattern the same way
-  // RISC-V's lui/addi pair does: a signed 20-bit Lo half that always fits a
-  // single ADDI immediate on its own, and a 12-bit Hi half rounded to
-  // compensate for Lo's sign so that (Hi << 20) + Lo reconstructs Val
-  // exactly.
+  // RISC-V's lui/addi pair does: a signed ImmBits-wide Lo half that always
+  // fits a single ADDI immediate on its own, and a (32 - ImmBits)-bit Hi half
+  // rounded to compensate for Lo's sign so that (Hi << ImmBits) + Lo
+  // reconstructs Val exactly. Hi is non-negative and below 2^(32 - ImmBits),
+  // so it also fits an ADDI immediate.
   //
   // Hi is shifted into position by calling the __lc2k_shl runtime routine
   // directly (the same one legalizeShift above routes G_SHL to), rather
@@ -497,11 +496,11 @@ bool LC2KLegalizerInfo::legalizeConstant(
   LLT S32 = LLT::scalar(32);
 
   uint32_t Bits = static_cast<uint32_t>(Val);
-  int32_t Lo = SignExtend32<20>(Bits & 0xFFFFF);
-  uint32_t Hi = (Bits - static_cast<uint32_t>(Lo)) >> 20;
+  int32_t Lo = SignExtend32(Bits, ImmBits);
+  uint32_t Hi = (Bits - static_cast<uint32_t>(Lo)) >> ImmBits;
 
   auto HiConst = MIRBuilder.buildConstant(S32, Hi);
-  auto ShiftAmt = MIRBuilder.buildConstant(S32, 20);
+  auto ShiftAmt = MIRBuilder.buildConstant(S32, ImmBits);
 
   Type *S32Ty = IntegerType::get(MI.getMF()->getFunction().getContext(), 32);
   Register Shifted = MRI.createGenericVirtualRegister(S32);

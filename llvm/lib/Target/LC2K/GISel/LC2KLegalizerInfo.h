@@ -39,6 +39,10 @@ private:
   bool legalizeBRJT(LegalizerHelper &Helper, MachineInstr &MI) const;
   bool legalizeConstant(LegalizerHelper &Helper, MachineInstr &MI,
                         LostDebugLocObserver &LocObserver) const;
+
+  /// Width of the CPU's signed immediate field, needed for
+  /// legalizeConstant.
+  unsigned ImmBits;
 };
 
 } // namespace llvm

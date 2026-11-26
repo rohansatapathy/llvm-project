@@ -142,12 +142,19 @@ def PSEUDO_CMP01 : LC2KPseudo<(outs GPR:$dst),
 // GlobalISel selection patterns
 //===----------------------------------------------------------------------===//
 
+// NOTE:
+// - ImmLeaf can't query subtarget, so each immediate width gets its own
+//   leaf type. Make sure to keep in sync w/ LC2KSubtarget::getImmBits().
+// - Large constants are split during legalization, so no need to handle
+//   here.
+// - Null pointers handled by selectConstant since p0 != s32.
 def simm20 : ImmLeaf<i32, [{ return isInt<20>(Imm); }]>;
+def simm21 : ImmLeaf<i32, [{ return isInt<21>(Imm); }]>;
 
-// Wider constants are split by LC2KLegalizerInfo::legalizeConstant before
-// selection. p0 constants (null pointers) fail this pattern's s32 type check
-// and are handled by selectConstant instead.
+let Predicates = [HasEncEECS470] in
 def : Pat<(i32 simm20:$imm), (ADDI (i32 R0), simm20:$imm)>;
+let Predicates = [HasEncPhobos] in
+def : Pat<(i32 simm21:$imm), (ADDI (i32 R0), simm21:$imm)>;
 
 // to_tframeindex (and its GlobalISel renderer, renderFrameIndex) come from
 // common code: TargetSelectionDAG.td / GlobalISel/SelectionDAGCompat.td.

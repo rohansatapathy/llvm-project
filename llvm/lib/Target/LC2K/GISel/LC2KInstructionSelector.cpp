@@ -245,9 +245,9 @@ bool LC2KInstructionSelector::selectGeneric(MachineInstr &I) const {
 }
 
 bool LC2KInstructionSelector::selectConstant(MachineInstr &I) const {
-  // s32 constants are selected by the simm20 Pat<> in LC2KInstrInfo.td. The
-  // only G_CONSTANT that reaches here is a p0 one (a null pointer), which
-  // fails that pattern's s32 type check.
+  // s32 constants are split in legalizer and selected by simm20/simm21 Pat<>s
+  // in LC2KInstrInfo.td. The only G_CONSTANT that should reach here is a p0
+  // one (a null pointer) since p0 != s32.
   Register Dst = I.getOperand(0).getReg();
   int64_t Val = I.getOperand(1).getCImm()->getSExtValue();
   assert(isIntN(STI.getImmBits(), Val) &&
