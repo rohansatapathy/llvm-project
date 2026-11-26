@@ -164,13 +164,14 @@ def : Pat<(br bb:$target), (BEQ_UNCOND (i32 R0), (i32 R0), bb:$target)>;
 
 def : Pat<(add GPR:$lhs, GPR:$rhs), (ADD GPR:$lhs, GPR:$rhs)>;
 
-// a - b == a + (~b + 1); ~b via NOR(b,b).
+// a - b == a + (~b + 1); ~b via NAND(b,b).
 def : Pat<(sub GPR:$lhs, GPR:$rhs),
-          (ADD GPR:$lhs, (ADDI (NOR GPR:$rhs, GPR:$rhs), 1))>;
+          (ADD GPR:$lhs, (ADDI (NAND GPR:$rhs, GPR:$rhs), 1))>;
 
-// De Morgan: a & b == NOR(~a, ~b).
+// a & b == ~NAND(a,b) == NAND(t,t) with t = NAND(a,b). Two instructions once
+// MachineCSE merges the duplicated NAND(a,b).
 def : Pat<(and GPR:$lhs, GPR:$rhs),
-          (NOR (NOR GPR:$lhs, GPR:$lhs), (NOR GPR:$rhs, GPR:$rhs))>;
+          (NAND (NAND GPR:$lhs, GPR:$rhs), (NAND GPR:$lhs, GPR:$rhs))>;
 
 // a | b == NOT(NOR(a,b)) == NOR(NOR(a,b), NOR(a,b)).
 def : Pat<(or GPR:$lhs, GPR:$rhs),

@@ -599,7 +599,8 @@ bool LC2KInstructionSelector::selectSExt(MachineInstr &I) const {
   // s1 values are canonical 0/1 (see selectICmp). Sign-extending a 1-bit
   // value replicates its single (sign) bit, so true (1) must become -1
   // (0xFFFFFFFF), not 1 -- i.e. this is two's-complement negation:
-  // -0 == 0, -1 == 0xFFFFFFFF. Same NOT-then-increment idiom as selectSub.
+  // -0 == 0, -1 == 0xFFFFFFFF. Same NOT-then-increment idiom as the G_SUB
+  // pattern in LC2KInstrInfo.td.
   MachineBasicBlock &MBB = *I.getParent();
   MachineRegisterInfo &MRI = I.getMF()->getRegInfo();
   DebugLoc DL = I.getDebugLoc();
@@ -607,7 +608,7 @@ bool LC2KInstructionSelector::selectSExt(MachineInstr &I) const {
   Register Src = I.getOperand(1).getReg();
 
   Register NotSrc = MRI.createVirtualRegister(&LC2K::GPRRegClass);
-  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NOR), NotSrc)
+  constrain(BuildMI(MBB, I, DL, TII.get(LC2K::NAND), NotSrc)
                 .addReg(Src)
                 .addReg(Src));
   constrain(BuildMI(MBB, I, DL, TII.get(LC2K::ADDI), Dst)
