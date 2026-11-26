@@ -23,6 +23,7 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #define GET_INSTRINFO_MC_DESC
 #define ENABLE_INSTR_PREDICATE_VERIFIER
@@ -65,8 +66,26 @@ static MCAsmInfo *createLC2KMCAsmInfo(const MCRegisterInfo &MRI,
 
 static MCSubtargetInfo *createLC2KMCSubtargetInfo(const Triple &TT,
                                                   StringRef CPU, StringRef FS) {
+  CPU = LC2K::normalizeCPU(CPU);
   MCSubtargetInfo *X = createLC2KMCSubtargetInfoImpl(TT, CPU, CPU, FS);
+  LC2K::validateFeatures(*X);
   return X;
+}
+
+StringRef LC2K::normalizeCPU(StringRef CPU) {
+  if (CPU.empty() || CPU == "generic")
+    return "eecs470";
+  return CPU;
+}
+
+void LC2K::validateFeatures(const MCSubtargetInfo &STI) {
+  unsigned NumEncodings = STI.hasFeature(LC2K::FeatureEnc470) +
+                          STI.hasFeature(LC2K::FeatureEncPhobos);
+  if (NumEncodings != 1)
+    reportFatalUsageError("LC2K: exactly one instruction encoding feature "
+                          "(enc-470, enc-phobos) must be enabled; got " +
+                          Twine(NumEncodings) + " for CPU '" + STI.getCPU() +
+                          "'");
 }
 
 static MCStreamer *

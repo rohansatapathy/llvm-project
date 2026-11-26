@@ -14,6 +14,7 @@
 #ifndef LLVM_LIB_TARGET_LC2K_MCTARGETDESC_LC2KMCTARGETDESC_H
 #define LLVM_LIB_TARGET_LC2K_MCTARGETDESC_LC2KMCTARGETDESC_H
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/DataTypes.h"
 
 #include <memory>
@@ -37,6 +38,19 @@ MCAsmBackend *createLC2KAsmBackend(const Target &T, const MCSubtargetInfo &STI,
                                    const MCTargetOptions &Options);
 
 std::unique_ptr<MCObjectTargetWriter> createLC2KELFObjectWriter(uint8_t OSABI);
+
+namespace LC2K {
+
+/// Map an empty or "generic" CPU name to the default CPU ("eecs470").
+///
+/// LLVM gives an empty or unrecognized CPU no features at all, so every place
+/// that builds an LC2K subtarget must normalize the CPU first.
+StringRef normalizeCPU(StringRef CPU);
+
+/// Report a fatal error unless exactly one encoding-family feature is set.
+void validateFeatures(const MCSubtargetInfo &STI);
+
+} // namespace LC2K
 
 } // namespace llvm
 

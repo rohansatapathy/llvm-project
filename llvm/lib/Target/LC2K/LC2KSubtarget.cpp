@@ -16,6 +16,7 @@
 #include "GISel/LC2KRegisterBankInfo.h"
 #include "LC2KInstrInfo.h"
 #include "LC2KTargetMachine.h"
+#include "MCTargetDesc/LC2KMCTargetDesc.h"
 
 // createLC2KInstructionSelector is declared in LC2KSubtarget.h and defined
 // in GISel/LC2KInstructionSelector.cpp.
@@ -30,13 +31,24 @@ using namespace llvm;
 
 LC2KSubtarget::LC2KSubtarget(const Triple &TT, const std::string &CPU,
                              const std::string &FS, const LC2KTargetMachine &TM)
-    : LC2KGenSubtargetInfo(TT, CPU, CPU, FS), InstrInfo(*this, TM.createDataLayout().getByteWidth()), FrameLowering(),
-      TLInfo(TM, *this) {
+    : LC2KGenSubtargetInfo(TT, LC2K::normalizeCPU(CPU),
+                           LC2K::normalizeCPU(CPU), FS),
+      InstrInfo(initializeSubtargetDependencies(CPU, FS),
+                TM.createDataLayout().getByteWidth()),
+      FrameLowering(), TLInfo(TM, *this) {
   CallLoweringInfo.reset(new LC2KCallLowering(*getTargetLowering()));
   Legalizer.reset(new LC2KLegalizerInfo(*this));
   RegBankInfo.reset(new LC2KRegisterBankInfo(*getRegisterInfo()));
   InstSelector.reset(createLC2KInstructionSelector(
       TM, *this, *static_cast<const LC2KRegisterBankInfo *>(RegBankInfo.get())));
+}
+
+LC2KSubtarget &LC2KSubtarget::initializeSubtargetDependencies(StringRef CPU,
+                                                              StringRef FS) {
+  CPU = LC2K::normalizeCPU(CPU);
+  ParseSubtargetFeatures(CPU, /*TuneCPU=*/CPU, FS);
+  LC2K::validateFeatures(*this);
+  return *this;
 }
 
 void LC2KSubtarget::anchor() {}
